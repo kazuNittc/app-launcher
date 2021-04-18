@@ -1,0 +1,13 @@
+#uselib "Shell32.dll"
+#func ExtractIcon "ExtractIconA" int,sptr,int
+#uselib "user32.dll"
+#func DrawIcon "DrawIcon" int,int,int,int
+
+	screen 0,800,600,0 : color 255,0,0 : boxf
+
+	ExtractIcon hInstance,"C:\\Program Files (x86)\\Internet Explorer\\iexplore.exe",0
+	IconHandle = stat
+	if IconHandle == 0 : dialog "アイコンをロードできませんでした" : stop
+
+	DrawIcon hdc,200,100,IconHandle
+	redraw 1
