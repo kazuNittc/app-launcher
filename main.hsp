@@ -1,4 +1,6 @@
 // module
+#include "highdpi.hsp"
+#include "KeyHook.hsp"
 #uselib "shell32"
     #func ExtractIcon "ExtractIconA" int, sptr, int
 #uselib "user32"
@@ -7,8 +9,6 @@
     #cfunc CreateDC "CreateDCA" sptr, sptr, sptr, int
     #func DeleteDC "DeleteDC"  int
     #func BitBlt "BitBlt" int, int, int, int, int, int, int, int, int
-#include "KeyHook.hsp"
-#include "a2d.hsp"
 
 // definition
 #define SRCCOPY         0x00CC0020
@@ -19,7 +19,7 @@ dx = ginfo_dispx
 dy = ginfo_dispy
 
 // pre-process
-appPath = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe", "C:\\Program Files (x86)\\LG Electronics\\OnScreen Control\\bin\\OnScreen Control.exe", "C:\\hsp351\\hdl.exe", "C:\\Users\\lconn\\AppData\\Local\\GitHubDesktop\\GitHubDesktop.exe"
+appPath = "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe", "C:\\Users\\lconn\\AppData\\Local\\GitHubDesktop\\GitHubDesktop.exe", "C:\\Program Files (x86)\\Microsoft Office\\root\\Office16\\EXCEL.EXE"
 trigger = 29  // muhenkan
 keySwitch = 0
 blend = 150
@@ -54,7 +54,7 @@ gsel 0, 0
             if (transition == -1) {
                 gsel 1, 0
                 hdcScreen = CreateDC("DISPLAY", 0, 0, 0)
-                BitBlt hdc, 0, 0, dx, dy, hdcScreen, 0, 0, SRCCOPY | CAPTUREBLT
+                BitBlt hdc, 0, 0, dx, dy, hdcScreen, 0, 0, SRCCOPY
                 DeleteDC hdcScreen
                 gsel 0, 0
                 gmode
