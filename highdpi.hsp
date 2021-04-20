@@ -79,10 +79,12 @@
 #undef ginfo_sy
 #define global ginfo_sy HIGHDPI_Y_INV(ginfo(27))
 
+/*
 #undef mousex
 #define global mousex HIGHDPI_X_INV(mousex@HSP)
 #undef mousey
 #define global mousey HIGHDPI_Y_INV(mousey@HSP)
+*/
 
 #defcfunc HIGHDPI_sizeof var soVar, local HSPCTX, local PVALptr, local PVAL, local sizeofval
 	// kz3さんのbufsize関数を参考
@@ -93,6 +95,7 @@
 	dupptr sizeofval,PVAL(7)-16,4,4
 	return sizeofval
 
+/*
 #undef screen
 #define global\
 	screen(%1=HIGHDPI_DEF,%2=HIGHDPI_DEF,%3=HIGHDPI_DEF,%4=HIGHDPI_DEF,%5=HIGHDPI_DEF,%6=HIGHDPI_DEF,%7=HIGHDPI_DEF,%8=HIGHDPI_DEF) \
@@ -451,6 +454,7 @@
 	if(p3 == HIGHDPI_DEF) : _p3 = HIGHDPI_ginfo_sy
 	axobj@HSP p1, axobj_iid, _p2, _p3
 	return
+*/
 
 #deffunc HIGHDPI_setScreenDefaultFont local BMSCR, local lfHeight
 	mref BMSCR, 67

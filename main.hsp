@@ -10,22 +10,35 @@
     #func DeleteDC "DeleteDC"  int
     #func BitBlt "BitBlt" int, int, int, int, int, int, int, int, int
 
+#module
+    #define global ctype cAng(%1, %2) 2.0*M_PI/(%1)*(%2)
+    #define global ctype pR(%1, %2) sqrt(powf(%1, 2) + powf(%2, 2))
+    #define global ctype pCos(%1) cos(%1 - M_PI/2)
+    #define global ctype pSin(%1) sin(%1 - M_PI/2)
+    #defcfunc pT int x, int y
+        ang = atan(y, x) + M_PI/2
+        if (ang < 0) {
+            ang = 2.0*M_PI + ang
+        }
+        return ang
+#global
+
 // definition
 #define SRCCOPY         0x00CC0020
 #define CAPTUREBLT      0x40000000
-iconHalfSize = 16
-radOffset = M_PI/2
+iconHalfSize = 20
 dx = ginfo_dispx
 dy = ginfo_dispy
 
 // pre-process
-appPath = "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe", "C:\\Users\\lconn\\AppData\\Local\\GitHubDesktop\\GitHubDesktop.exe", "C:\\Program Files (x86)\\Microsoft Office\\root\\Office16\\EXCEL.EXE"
+appPath = "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe", "C:\\Users\\lconn\\AppData\\Local\\GitHubDesktop\\GitHubDesktop.exe", "C:\\Program Files (x86)\\Microsoft Office\\root\\Office16\\EXCEL.EXE", "C:\\Users\\lconn\\AppData\\Local\\LINE\\bin\\LineLauncher.exe", "C:\\Program Files\\ADSR Sample Manager\\ADSR Sample Manager.exe", "C:\\Program Files (x86)\\Microsoft Office\\root\\Office16\\WINWORD.EXE", "C:\\Users\\lconn\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe"
 trigger = 29  // muhenkan
 keySwitch = 0
-blend = 150
+blend = 128
 transition = -1
 depth = 5
-appR = 0.6 * dy/2
+sepHalfLength = 5
+appR = 0.3 * dy/2
 
 appNum = length(appPath)
 dim iconHandle, appNum
@@ -39,9 +52,9 @@ khHookLL *onKeyHook
 
 // screen
 bgscr 0, dx, dy, screen_hide, 0, 0  // main
-    color : boxf
 buffer 1, dx, dy                    // for screen shot
 buffer 2, dx, dy                    // for blended screen
+buffer 3, dx, dy                    // 
 gsel 0, 0
 
 // label
@@ -75,14 +88,35 @@ gsel 0, 0
                 gsel 0, 0
                 transition++
             } else : if (transition > depth) {
-                color $80, $80, $80
                 gsel 0, 0
                 gmode
                 pos 0, 0 : gcopy 1, 0, 0, dx, dy
+                color $80, $80, $80
                 circle dx/2-appR, dy/2-appR, dx/2+appR, dy/2+appR, 0
+                color $ff, $ff, $ff
+                mouseRad = pT(mousex-dx/2, mousey-dy/2)
+                mouseViewR = 0.6 * dy/2
+                pos 0,  0 : mes "mouse = (" + mousex + ", " + mousey + ")"
+                pos 0, 20 : mes "ginfo_disp = (" + dx + ", " + dy + ")"
+                pos 0, 40 : mes "polar R = " + pR(mousex-dx/2, mousey-dy/2)
+                pos 0, 60 : mes "polar T = " + mouseRad
+                line dx/2, dy/2, mouseViewR*pCos(mouseRad) + dx/2, mouseViewR*pSin(mouseRad) + dy/2
                 repeat appNum
-                    DrawIcon hdc, dx/2 + appR*cos(2.0*M_PI/appNum*cnt - radOffset)-iconHalfSize, dy/2 + appR*sin(2.0*M_PI/appNum*cnt - radOffset)-iconHalfSize, IconHandle(cnt)
+                    DrawIcon hdc, dx/2-iconHalfSize + pCos(cAng(appNum, cnt))*appR, dy/2-iconHalfSize + pSin(cAng(appNum, cnt))*appR, IconHandle(cnt)
+                    line dx/2 + pCos(cAng(appNum*2, cnt*2-1))*(appR-sepHalfLength), dy/2 + pSin(cAng(appNum*2, cnt*2-1))*(appR-sepHalfLength), dx/2 + pCos(cAng(appNum*2, cnt*2-1))*(appR+sepHalfLength), dy/2 + pSin(cAng(appNum*2, cnt*2-1))*(appR+sepHalfLength)
                 loop
+                // judge for mouse position
+                if (pR(mousex-dx/2, mousey-dy/2) >= appR) {
+                    repeat appNum-1
+                        if ((cAng(appNum*2, cnt*2+1) < mouseRad) & (mouseRad < cAng(appNum*2, cnt*2+3))) {
+                            pos 0,  80 : mes "area" + (cnt+1) + " detected"
+                            pos 0, 100 : mes "cnt: (" + (cnt*2+1) + " to " + (cnt*2+3) + "), theta: (" + cAng(appNum*2, cnt*2+1) + " to " + cAng(appNum*2, cnt*2+3) + ")"
+                        } else : if ((cAng(appNum*2, appNum*2-1) < mouseRad) | (mouseRad < cAng(appNum*2, 1))) {
+                            pos 0,  80 : mes "area0 detected"
+                            pos 0, 100 : mes "cnt: (" + (appNum*2-1) + ",to 1), theta: (" + cAng(appNum*2, appNum*2-1) + " to " + cAng(appNum*2, 1) + ")"
+                        }
+                    loop
+                }
             }
         }
     redraw 1
