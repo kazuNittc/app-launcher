@@ -38,7 +38,7 @@ blend = 128
 transition = -1
 depth = 5
 sepHalfLength = 5
-appR = 0.3 * dy/2
+appR = 0.4 * dy/2
 selecting = -1
 
 appNum = length(appPath)
@@ -91,7 +91,7 @@ goto *main
                 // screen shot
                 gsel 1, 0
                 hdcScreen = CreateDC("DISPLAY", 0, 0, 0)
-                BitBlt hdc, 0, 0, dx, dy, hdcScreen, 0, 0, SRCCOPY
+                BitBlt hdc, 0, 0, dx, dy, hdcScreen, 0, 0, SRCCOPY | CAPTUREBLT
                 DeleteDC hdcScreen
                 // copy to screen 0
                 gsel 0, 0
