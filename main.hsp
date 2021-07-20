@@ -26,21 +26,43 @@
 // definition
 #define SRCCOPY         0x00CC0020
 #define CAPTUREBLT      0x40000000
+#define APPDAT          "app.dat"
 iconHalfSize = 20
 dx = ginfo_dispx
 dy = ginfo_dispy
+cx = dx/2
+cy = dy/2
 
 // pre-process
-appPath = "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe", "C:\\Users\\lconn\\AppData\\Local\\GitHubDesktop\\GitHubDesktop.exe", "C:\\Program Files (x86)\\Microsoft Office\\root\\Office16\\EXCEL.EXE", "C:\\Users\\lconn\\AppData\\Local\\LINE\\bin\\LineLauncher.exe", "C:\\Program Files\\ADSR Sample Manager\\ADSR Sample Manager.exe", "C:\\Program Files (x86)\\Microsoft Office\\root\\Office16\\WINWORD.EXE", "C:\\Users\\lconn\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe"
 trigger = 29  // muhenkan
 keySwitch = 0
 blend = 128
 transition = -1
 depth = 5
 sepHalfLength = 5
-appR = 0.4 * dy/2
 selecting = -1
 
+// file io
+notesel appDatContents
+exist APPDAT
+if (strSize == -1) {
+    notesave APPDAT
+    appPath = ""
+} else {
+    noteload APPDAT
+    if (appDatContents == "") {
+        appPath = ""
+        end
+    } else {
+        sdim appPath, notemax
+        repeat notemax
+            noteget noteBuf, cnt
+            appPath(cnt) = noteBuf
+        loop
+    }
+}
+
+// load icon
 appNum = length(appPath)
 dim iconHandle, appNum
 repeat appNum
@@ -49,19 +71,30 @@ repeat appNum
     if (stat == 0) : dialog "loading failed."
 loop
 
+appR = (0.05*appNum + 0.1) * cy
+
 khHookLL *onKeyHook
 
 // screen
 bgscr 0, dx, dy, screen_hide, 0, 0  // main
 buffer 1, dx, dy                    // for screen shot
 buffer 2, dx, dy                    // for blended screen
+buffer 3                            // for colored screen
+    dim appColor, appNum
+    repeat appNum
+        DrawIcon hdc, 0, 0, IconHandle(cnt)
+        pos 0, 0 : gzoom 1, 1, 3, 0, 0, 32, 32, 1
+        pget 0, 0
+        appColor(cnt) = ginfo_r | ginfo_g << 8 | ginfo_b << 16
+    loop
+
 gsel 0, 0
 
 goto *main
 
 // label
 *main
-    gosub *drawing
+    gosub *showing
     await
     goto *main
 
@@ -77,7 +110,7 @@ goto *main
     }
     return
 
-*drawing
+*showing
     redraw 0
         if (keySwitch == 0) {
             transition = -1
@@ -105,43 +138,20 @@ goto *main
                 // blur
                 gsel 0, 0
                 gmode gmode_alpha, dx, dy, blend
-                pos 1, 0 : gcopy 0
-                pos 0, 0 : gcopy 0, 2, 0
-                pos 0, 1 : gcopy 0
-                pos 0, 0 : gcopy 0, 0, 2
+                pos 1, 0 : gcopy 0, 0, 0, dx, dy
+                pos 0, 0 : gcopy 0, 2, 0, dx, dy
+                pos 0, 1 : gcopy 0, 0, 0, dx, dy
+                pos 0, 0 : gcopy 0, 0, 2, dx, dy
                 // copy to buffer 1
                 gsel 1, 0
                 gmode
                 pos 0, 0 : gcopy 0, 0, 0, dx, dy
                 gsel 0, 0
-                mouse dx/2, dy/2
+                mouse cx, cy
                 transition++
             } else : if (transition > depth) {
-                gsel 0, 0
-                gmode
-                pos 0, 0 : gcopy 1, 0, 0, dx, dy
-                // draw center circle
-                color $80, $80, $80
-                circle dx/2-appR, dy/2-appR, dx/2+appR, dy/2+appR, 0
-                color $ff, $ff, $ff
-                mouseRad = pT(mousex-dx/2, mousey-dy/2)
-                mouseViewR = 0.6 * dy/2
-                // draw info
-                pos 0,   0 : mes "mouse = (" + mousex + ", " + mousey + ")"
-                pos 0,  20 : mes "ginfo_disp = (" + dx + ", " + dy + ")"
-                pos 0,  40 : mes "polar R = " + pR(mousex-dx/2, mousey-dy/2)
-                pos 0,  60 : mes "polar T = " + mouseRad
-                pos 0,  80 : mes  "selecting = " + selecting
-                // draw center to mouse position
-                line dx/2, dy/2, mousex, mousey
-                repeat appNum
-                    // draw icon
-                    DrawIcon hdc, dx/2-iconHalfSize + pCos(cAng(appNum, cnt))*appR, dy/2-iconHalfSize + pSin(cAng(appNum, cnt))*appR, IconHandle(cnt)
-                    // draw separation line
-                    line dx/2 + pCos(cAng(appNum*2, cnt*2-1))*(appR-sepHalfLength), dy/2 + pSin(cAng(appNum*2, cnt*2-1))*(appR-sepHalfLength), dx/2 + pCos(cAng(appNum*2, cnt*2-1))*(appR+sepHalfLength), dy/2 + pSin(cAng(appNum*2, cnt*2-1))*(appR+sepHalfLength)
-                loop
                 // detect app selection
-                if (pR(mousex-dx/2, mousey-dy/2) >= appR) {
+                if (pR(mousex-cx, mousey-cy) >= appR) {
                     if ((cAng(appNum*2, appNum*2-1) < mouseRad) | (mouseRad < cAng(appNum*2, 1))) {
                         selecting = 0
                     } else {
@@ -150,6 +160,42 @@ goto *main
                         loop
                     }
                 } else { selecting = -1 }
+                // screen blend
+                gsel 0, 0
+                gmode
+                pos 0, 0 : gcopy 1, 0, 0, dx, dy
+                // draw center circle
+                color $80, $80, $80
+                circle cx-appR, cy-appR, cx+appR, cy+appR, 0
+                color $ff, $ff, $ff
+                mouseRad = pT(mousex-cx, mousey-cy)
+                mouseViewR = 0.6 * cy
+                // draw info
+                pos 0,   0 : mes "mouse = (" + mousex + ", " + mousey + ")"
+                pos 0,  20 : mes "ginfo_disp = (" + dx + ", " + dy + ")"
+                pos 0,  40 : mes "polar R = " + pR(mousex-cx, mousey-cy)
+                pos 0,  60 : mes "polar T = " + mouseRad
+                pos 0,  80 : mes "selecting = " + selecting
+                pos 0, 100 : mes "appR = " + appR
+                // draw center to mouse position
+                //line cx, cy, mousex, mousey
+                repeat appNum
+                    // draw icon
+                    DrawIcon hdc, cx-iconHalfSize + pCos(cAng(appNum, cnt))*appR, cy-iconHalfSize + pSin(cAng(appNum, cnt))*appR, IconHandle(cnt)
+                    // draw separation line
+                    line cx + pCos(cAng(appNum*2, cnt*2-1))*(appR-sepHalfLength), cy + pSin(cAng(appNum*2, cnt*2-1))*(appR-sepHalfLength), cx + pCos(cAng(appNum*2, cnt*2-1))*(appR+sepHalfLength), cy + pSin(cAng(appNum*2, cnt*2-1))*(appR+sepHalfLength)
+                loop
+                // app selecting view
+                if (selecting != -1) {
+                    gsel 3, 0
+                    hsvcolor 192/appNum * selecting, 255, 255 : boxf
+                    gsel 0, 0
+                    gmode gmode_alpha, dx, dy, 20
+                    pos 0, 0 : gcopy 3, 0, 0, dx, dy
+                    color $ff, $ff, $ff
+                    line cx, cy, cx + pCos(cAng(appNum*2, selecting*2-1))*appR, cy + pSin(cAng(appNum*2, selecting*2-1))*appR
+                    line cx, cy, cx + pCos(cAng(appNum*2, selecting*2+1))*appR, cy + pSin(cAng(appNum*2, selecting*2+1))*appR
+                }
             }
         }
     redraw 1
