@@ -27,37 +27,66 @@
 #define SRCCOPY         0x00CC0020
 #define CAPTUREBLT      0x40000000
 #define APPDAT          "app.dat"
-iconHalfSize = 20
+#define SETDAT          "setting.dat"
+iconHalfSize = 16
 dx = ginfo_dispx
 dy = ginfo_dispy
 cx = dx/2
 cy = dy/2
 
+setDatTemplate = {"BlurBlend:
+BlurDepth:
+SelectingBlend:
+BigIconSize:
+sepHalfLength:"}
+
 // pre-process
 trigger = 29  // muhenkan
 keySwitch = 0
-blend = 128
+blurBlend = 128
+selectingBlend = 40
 transition = -1
-depth = 5
+depth = 3
+bigIconSize = 40
 sepHalfLength = 5
 selecting = -1
+appDatContents = ""
+setDatContents = ""
 
 // file io
+//      app.dat
 notesel appDatContents
 exist APPDAT
+appPath = ""
 if (strSize == -1) {
     notesave APPDAT
-    appPath = ""
 } else {
     noteload APPDAT
     if (appDatContents == "") {
-        appPath = ""
         end
     } else {
         sdim appPath, notemax
         repeat notemax
             noteget noteBuf, cnt
             appPath(cnt) = noteBuf
+        loop
+    }
+}
+
+//      setting.dat
+notesel setDatContents
+exist SETDAT
+if (strsize == -1) {
+    notesave SETDAT
+} else {
+    noteload SETDAT
+    if (setDatContents == "") {
+        dialog "setting.dat is empty"
+        end
+    } else {
+        repeat notemax
+            noteget noteBuf, cnt
+            
         loop
     }
 }
@@ -79,14 +108,16 @@ khHookLL *onKeyHook
 bgscr 0, dx, dy, screen_hide, 0, 0  // main
 buffer 1, dx, dy                    // for screen shot
 buffer 2, dx, dy                    // for blended screen
-buffer 3                            // for colored screen
+buffer 3, dx, dy                    // for colored screen
     dim appColor, appNum
     repeat appNum
         DrawIcon hdc, 0, 0, IconHandle(cnt)
         pos 0, 0 : gzoom 1, 1, 3, 0, 0, 32, 32, 1
         pget 0, 0
-        appColor(cnt) = ginfo_r | ginfo_g << 8 | ginfo_b << 16
+        appColor(cnt) = ginfo_r << 16 | ginfo_g << 8 | ginfo_b
     loop
+buffer 4                            // for drawing icon
+buffer 5                            // for resizing icon
 
 gsel 0, 0
 
@@ -137,7 +168,7 @@ goto *main
             if (transition <= depth) {
                 // blur
                 gsel 0, 0
-                gmode gmode_alpha, dx, dy, blend
+                gmode gmode_alpha, dx, dy, blurBlend
                 pos 1, 0 : gcopy 0, 0, 0, dx, dy
                 pos 0, 0 : gcopy 0, 2, 0, dx, dy
                 pos 0, 1 : gcopy 0, 0, 0, dx, dy
@@ -179,22 +210,34 @@ goto *main
                 pos 0, 100 : mes "appR = " + appR
                 // draw center to mouse position
                 //line cx, cy, mousex, mousey
-                repeat appNum
-                    // draw icon
-                    DrawIcon hdc, cx-iconHalfSize + pCos(cAng(appNum, cnt))*appR, cy-iconHalfSize + pSin(cAng(appNum, cnt))*appR, IconHandle(cnt)
-                    // draw separation line
-                    line cx + pCos(cAng(appNum*2, cnt*2-1))*(appR-sepHalfLength), cy + pSin(cAng(appNum*2, cnt*2-1))*(appR-sepHalfLength), cx + pCos(cAng(appNum*2, cnt*2-1))*(appR+sepHalfLength), cy + pSin(cAng(appNum*2, cnt*2-1))*(appR+sepHalfLength)
-                loop
-                // app selecting view
-                if (selecting != -1) {
+                if (selecting == -1) {
+                    repeat appNum
+                        // draw icon
+                        DrawIcon hdc, cx-iconHalfSize + pCos(cAng(appNum, cnt))*appR, cy-iconHalfSize + pSin(cAng(appNum, cnt))*appR, IconHandle(cnt)
+                        // draw separation line
+                        line cx + pCos(cAng(appNum*2, cnt*2-1))*(appR-sepHalfLength), cy + pSin(cAng(appNum*2, cnt*2-1))*(appR-sepHalfLength), cx + pCos(cAng(appNum*2, cnt*2-1))*(appR+sepHalfLength), cy + pSin(cAng(appNum*2, cnt*2-1))*(appR+sepHalfLength)
+                    loop
+                } else {  // app selecting view
+                    gsel 4, 0
+                    color : boxf
+                    DrawIcon hdc, 0, 0, IconHandle(selecting)
+                    gsel 5, 0
+                    gzoom iconHalfSize*2+bigIconSize, iconHalfSize*2+bigIconSize, 4, 0, 0, iconHalfSize*2, iconHalfSize*2, 1
                     gsel 3, 0
-                    hsvcolor 192/appNum * selecting, 255, 255 : boxf
+                    //hsvcolor 192/appNum * selecting, 255, 255 : boxf
+                    color appColor(selecting) >> 16, appColor(selecting) >> 8 & 0xFF, appColor(selecting) & 0xFF : boxf
                     gsel 0, 0
-                    gmode gmode_alpha, dx, dy, 20
+                    // draw big icon
+                    gmode gmode_rgb0
+                    pos cx-iconHalfSize-bigIconSize/2 + pCos(cAng(appNum, selecting))*appR, cy-iconHalfSize-bigIconSize/2 + pSin(cAng(appNum, selecting))*appR
+                    gcopy 5, 0, 0, iconHalfSize*2+bigIconSize, iconHalfSize*2+bigIconSize
+                    // blend background color
+                    gmode gmode_alpha, dx, dy, selectingBlend
                     pos 0, 0 : gcopy 3, 0, 0, dx, dy
+                    // draw selecting line
                     color $ff, $ff, $ff
-                    line cx, cy, cx + pCos(cAng(appNum*2, selecting*2-1))*appR, cy + pSin(cAng(appNum*2, selecting*2-1))*appR
-                    line cx, cy, cx + pCos(cAng(appNum*2, selecting*2+1))*appR, cy + pSin(cAng(appNum*2, selecting*2+1))*appR
+                    //line cx, cy, cx + pCos(cAng(appNum*2, selecting*2-1))*appR, cy + pSin(cAng(appNum*2, selecting*2-1))*appR
+                    //line cx, cy, cx + pCos(cAng(appNum*2, selecting*2+1))*appR, cy + pSin(cAng(appNum*2, selecting*2+1))*appR
                 }
             }
         }
