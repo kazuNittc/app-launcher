@@ -34,19 +34,15 @@ dy = ginfo_dispy
 cx = dx/2
 cy = dy/2
 
-setDatTemplate = {"BlurBlend:
-BlurDepth:
-SelectingBlend:
-BigIconSize:
-sepHalfLength:"}
+defaultSetting = 128, 3, 40, 40, 5
 
 // pre-process
-trigger = 29  // muhenkan
+triggerKey(0) = 29  // muhenkan
 keySwitch = 0
 blurBlend = 128
 selectingBlend = 40
 transition = -1
-depth = 3
+blurDepth = 3
 bigIconSize = 40
 sepHalfLength = 5
 selecting = -1
@@ -54,6 +50,58 @@ appDatContents = ""
 setDatContents = ""
 
 // file io
+//      setting.dat
+notesel setDatContents
+exist SETDAT
+if (strsize == -1) {
+    notesave SETDAT
+} else {
+    noteload SETDAT
+    if (setDatContents == "") {
+        dialog "setting.dat is empty"
+        end
+    } else {
+        repeat notemax
+            noteget noteBuf, cnt
+            // hoken
+            if (noteBuf == "") { break }
+            // for debug
+            noteBuf = strtrim(noteBuf, 3)
+            split noteBuf, "//", noteBuf, dummy
+            switch cnt
+                // blurBlend
+                case 0
+                    blurBlend = int(noteBuf)
+                    swbreak
+                // blurDepth
+                case 1
+                    blurDepth = int(noteBuf)
+                    swbreak
+                // selectingBlend
+                case 2
+                    selectingBlend = int(noteBuf)
+                    swbreak
+                // bigIconSize
+                case 3
+                    bigIconSize = int(noteBuf)
+                    swbreak
+                // sepHalfLength
+                case 4
+                    sephalfLength = int(noteBuf)
+                    swbreak
+                // triggerKey
+                case 5
+                    split noteBuf, ",", sBuf
+                    foreach sBuf
+                        triggerKey(cnt) = int(sBuf(cnt))
+                        triggerKeyPush(cnt) = 0
+                    loop
+                    swbreak
+            swend
+        loop
+    }
+}
+
 //      app.dat
 notesel appDatContents
 exist APPDAT
@@ -68,25 +116,9 @@ if (strSize == -1) {
         sdim appPath, notemax
         repeat notemax
             noteget noteBuf, cnt
+            // hoken
+            if (noteBuf == "") { break }
             appPath(cnt) = noteBuf
-        loop
-    }
-}
-
-//      setting.dat
-notesel setDatContents
-exist SETDAT
-if (strsize == -1) {
-    notesave SETDAT
-} else {
-    noteload SETDAT
-    if (setDatContents == "") {
-        dialog "setting.dat is empty"
-        end
-    } else {
-        repeat notemax
-            noteget noteBuf, cnt
-            
         loop
     }
 }
@@ -130,7 +162,40 @@ goto *main
     goto *main
 
 *onKeyHook
-    if (khKeyCode == trigger) {
+    // press esc to exit
+    if (khKeyCode == 27) { end }
+    // trigger key check
+    foreach triggerKey
+        if (khKeyCode == triggerKey(cnt)) {
+            if (khStat == 0) {  // pushed
+                triggerKeyPush(cnt) = 1
+            } else : if (khStat == 2) {  // released
+                triggerKeyPush(cnt) = 0
+            }
+        }
+    loop
+    keyPushAnd = 1
+    keyPushOr = 0
+    foreach triggerKeyPush
+        if (triggerKeyPush(cnt)) {
+            keyPushAnd = keyPushAnd and 1
+            keyPushOr = keyPushOr or 1
+        } else {
+            keyPushAnd = keyPushAnd and 0
+            keyPushOr = keyPushOr or 0
+        }
+    loop
+    if ((keyPushAnd == 1) and (keySwitch == 0)) {
+        keySwitch = 1
+    } else : if ((keyPushOr == 0) and (keySwitch == 1)) {
+        keySwitch = 0
+    }
+    return
+
+
+
+/*
+    if (khKeyCode == triggerKey) {
         if ((khStat == 0) & (keySwitch == 0)) {
             keySwitch = 1
         } else : if ((khStat == 2) & (keySwitch == 1)) {
@@ -140,6 +205,9 @@ goto *main
         end
     }
     return
+*/
+
+
 
 *showing
     redraw 0
@@ -165,7 +233,7 @@ goto *main
                 transition = 0
                 gsel 0, 2
             }
-            if (transition <= depth) {
+            if (transition <= blurDepth) {
                 // blur
                 gsel 0, 0
                 gmode gmode_alpha, dx, dy, blurBlend
@@ -180,7 +248,7 @@ goto *main
                 gsel 0, 0
                 mouse cx, cy
                 transition++
-            } else : if (transition > depth) {
+            } else : if (transition > blurDepth) {
                 // detect app selection
                 if (pR(mousex-cx, mousey-cy) >= appR) {
                     if ((cAng(appNum*2, appNum*2-1) < mouseRad) | (mouseRad < cAng(appNum*2, 1))) {
