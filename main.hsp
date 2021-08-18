@@ -302,9 +302,8 @@ goto *main
                     gsel 3, 0
                     ;hsvcolor 192/appNum * selecting, 255, 255 : boxf
                     color appColor(selecting) >> 16, appColor(selecting) >> 8 & 0xFF, appColor(selecting) & 0xFF : boxf
-                    
-                    gsel 0, 0
                     // blend background color
+                    gsel 0, 0
                     gmode gmode_alpha, dx, dy, selectingBlend
                     pos 0, 0 : gcopy 3, 0, 0, dx, dy
                     // draw big icon
