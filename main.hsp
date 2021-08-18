@@ -37,17 +37,21 @@ cy = dy/2
 defaultSetting = 128, 3, 40, 40, 5
 
 // pre-process
-triggerKey = 160, 162
 keySwitch = 0
-blurBlend = 128
-selectingBlend = 40
 transition = -1
-blurDepth = 3
-bigIconSize = 40
-sepHalfLength = 5
 selecting = -1
 appDatContents = ""
 setDatContents = ""
+
+// inital value
+blurBlend = 128
+blurDepth = 3
+selectingBlend = 40
+bigIconSize = 40
+sepHalfLength = 5
+triggerKey = 160, 162
+darkBlend = 50
+fontSize = 14
 
 // file io
 //      setting.dat
@@ -97,6 +101,14 @@ if (strsize == -1) {
                         triggerKeyPush(cnt) = 0
                     loop
                     swbreak
+                // darkBlend
+                case 6
+                    darkBlend = int(noteBuf)
+                    swbreak
+                // fontSize
+                case 7
+                    fontSize = int(noteBuf)
+                    swbreak
             swend
         loop
     }
@@ -134,11 +146,9 @@ repeat appNum
 loop
 
 appR = (0.05*appNum + 0.1) * cy
-launcherMsgPos = cy + appR + 100
+launcherMsgPos = cy + appR + (iconHalfSize*2 + bigIconSize/2) + 10
 
 khHookLL *onKeyHook
-
-font msgothic, 14
 
 // screen
 bgscr 0, dx, dy, screen_hide, 0, 0  // main
@@ -154,7 +164,9 @@ buffer 3, dx, dy                    // for colored screen
     loop
 buffer 4                            // for drawing icon
 buffer 5                            // for resizing icon
-buffer 6                            // for center circle
+buffer 6, dx, dy                    // for dark screen
+    color : boxf
+
 gsel 0, 0
 
 goto *main
@@ -228,6 +240,9 @@ goto *main
                 pos 0, 0 : gcopy 0, 2, 0, dx, dy
                 pos 0, 1 : gcopy 0, 0, 0, dx, dy
                 pos 0, 0 : gcopy 0, 0, 2, dx, dy
+                // blend dark screen
+                gmode gmode_alpha, dx, dy, darkBlend
+                pos 0, 0 : gcopy 6, 0, 0, dx, dy
                 // copy to buffer 1
                 gsel 1, 0
                 gmode
@@ -257,6 +272,7 @@ goto *main
                 mouseRad = pT(mousex-cx, mousey-cy)
                 mouseViewR = 0.6 * cy
                 // draw info (debug)
+                font msgothic, 16
                 pos 0,   0 : mes "mouse = (" + mousex + ", " + mousey + ")"
                 pos 0,  20 : mes "ginfo_disp = (" + dx + ", " + dy + ")"
                 pos 0,  40 : mes "polar R = " + pR(mousex-cx, mousey-cy)
@@ -273,8 +289,9 @@ goto *main
                         line cx + pCos(cAng(appNum*2, cnt*2-1))*(appR-sepHalfLength), cy + pSin(cAng(appNum*2, cnt*2-1))*(appR-sepHalfLength), cx + pCos(cAng(appNum*2, cnt*2-1))*(appR+sepHalfLength), cy + pSin(cAng(appNum*2, cnt*2-1))*(appR+sepHalfLength)
                     loop
                     // draw message
+                    font msgothic, fontSize
                     color $90, $90, $90
-                    pos cx-7*16, launcherMsgPos : mes "right click to enter settings..."
+                    pos cx-fontSize/2*29/2, launcherMsgPos : mes "right click to enter settings"
                 } else {  // app selecting view
                     // preparing to draw big icon
                     gsel 4, 0
@@ -295,8 +312,9 @@ goto *main
                     pos cx-iconHalfSize-bigIconSize/2 + pCos(cAng(appNum, selecting))*appR, cy-iconHalfSize-bigIconSize/2 + pSin(cAng(appNum, selecting))*appR
                     gcopy 5, 0, 0, iconHalfSize*2+bigIconSize, iconHalfSize*2+bigIconSize
                     // draw message
+                    font msgothic, fontSize
                     color $FF, $FF, $FF
-                    pos cx-7*strlen(appName(selecting))/2, launcherMsgPos : mes appName(selecting)
+                    pos cx-fontSize/2*strlen(appName(selecting))/2, launcherMsgPos : mes appName(selecting)
                     // draw selecting line
                     ;color $40, $40, $40
                     ;line cx, cy, cx + pCos(cAng(appNum*2, selecting*2-1))*appR, cy + pSin(cAng(appNum*2, selecting*2-1))*appR
