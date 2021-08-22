@@ -5,10 +5,14 @@
     #func ExtractIcon "ExtractIconA" int, sptr, int
 #uselib "user32"
     #func DrawIcon "DrawIcon" int, int, int, int
+    #func GetClientRect "GetClientRect" int, int
+    #func SetWindowLong "SetWindowLongA" int, int, int
+    #func SetParent "SetParent" int, int
 #uselib "gdi32"
+    #func BitBlt "BitBlt" int, int, int, int, int, int, int, int, int
     #cfunc CreateDC "CreateDCA" sptr, sptr, sptr, int
     #func DeleteDC "DeleteDC"  int
-    #func BitBlt "BitBlt" int, int, int, int, int, int, int, int, int
+    #cfunc GetStockObject "GetStockObject" int
 
 #module
     #define global ctype cAng(%1, %2) 2.0*M_PI/(%1)*(%2)
@@ -24,6 +28,8 @@
 #global
 
 // definition
+#define TCN_SELCHANGE   0xFFFFFDD9
+#define TCM_GETCURSEL   0x0000130B
 #define SRCCOPY         0x00CC0020
 #define CAPTUREBLT      0x40000000
 #define APPDAT          "app.dat"
@@ -34,12 +40,11 @@ dy = ginfo_dispy
 cx = dx/2
 cy = dy/2
 
-defaultSetting = 128, 3, 40, 40, 5
-
 // pre-process
 keySwitch = 0
 transition = -1
 selecting = -1
+wId = 0
 appDatContents = ""
 setDatContents = ""
 
@@ -141,15 +146,13 @@ appNum = length(appPath)
 dim iconHandle, appNum
 repeat appNum
     ExtractIcon hInstance, appPath(cnt), 0
-    IconHandle(cnt) = stat
+    iconHandle(cnt) = stat
     if (stat == 0) : dialog "loading failed."
 loop
 
 appR = (0.05*appNum + 0.1) * cy
+pageMsgPos = cy - appR - (iconHalfSize*2 + bigIconSize/2) - fontSize - 10
 launcherMsgPos = cy + appR + (iconHalfSize*2 + bigIconSize/2) + 10
-
-khHookLL *onKeyHook
-onexit goto *exitProcess
 
 // screen
 bgscr 0, dx, dy, screen_hide, 0, 0  // main
@@ -158,25 +161,42 @@ buffer 2, dx, dy                    // for blended screen
 buffer 3, dx, dy                    // for colored screen
     dim appColor, appNum
     repeat appNum
-        DrawIcon hdc, 0, 0, IconHandle(cnt)
+        DrawIcon hdc, 0, 0, iconHandle(cnt)
         pos 0, 0 : gzoom 1, 1, 3, 0, 0, 32, 32, 1
         pget 0, 0
         appColor(cnt) = ginfo_r << 16 | ginfo_g << 8 | ginfo_b
     loop
+
 buffer 4                            // for drawing icon
 buffer 5                            // for resizing icon
 buffer 6, dx, dy                    // for dark screen
     color : boxf
-screen 7, 960, 720//, screen_hide     // setting
+
+screen 7, 960, 720, screen_hide     // setting
     title "setting"
-    color $20, $20, $20 : boxf
+    syscolor 15 : boxf
+    winobj "systabcontrol32", "", 0, 0x52000000, 960, 720
+    hTab = objinfo(stat, 2)
+    sendmsg hTab, 0x30, GetStockObject(17)
+    tabTitle = "Common", "Apps"
+    dim rect, 4
+    foreach tabTitle
+        tcitem = 1, 0, 0, varptr(tabTitle(cnt))
+        sendmsg hTab, 0x1307, cnt, varptr(tcitem)
+        GetClientRect hTab, varptr(rect)
+        sendmsg hTab, 0x1328, 0, varptr(rect)
+    loop
+
+// setting - common
+bgscr 8, rect(2) - rect(0), rect(3) - rect(1), screen_hide, rect(0), rect(1)
+    SetWindowLong hwnd, -16, 0x40000000
+    SetParent hwnd, hTab
     font msgothic, 20
-    color $FF, $FF, $FF
+    color
     pos 20,  20 : mes "Animation"
     pos 20, 150 : mes "Selection"
-    pos 20, 320 : mes "Apps"
     font msgothic, 16
-    color $D0, $D0, $D0
+    color $40, $40, $40
     pos 50,  50 : mes "blurBlend"
     pos 50,  70 : mes "blurDepth"
     pos 50,  90 : mes "darkBlend"
@@ -186,7 +206,20 @@ screen 7, 960, 720//, screen_hide     // setting
     pos 50, 240 : mes "fontSize"
     pos 50, 260 : mes "triggerKey"
 
+// setting - Apps
+bgscr 9, rect(2)-rect(0), rect(3)-rect(1), screen_hide, rect(0), rect(1)
+    SetWindowLong hwnd, -16, 0x40000000
+    SetParent hwnd, hTab
+    color $20, $20, $20 : boxf
+
+gsel 8, 1
+gsel 7, 0
+oncmd gosub *tabNotify, 0x4E
+
 gsel 0, 0
+
+khHookLL *onKeyHook
+onexit goto *exitProcess
 
 goto *main
 
@@ -205,8 +238,15 @@ goto *main
             gosub *key0
         }
     }
-    await
+    wait 1
     goto *main
+
+
+
+*showSetting
+    gsel 0, -1
+    gsel 7, 2
+    stop
 
 
 
@@ -298,31 +338,33 @@ goto *main
         if (selecting == -1) {  // app list view
             repeat appNum
                 // draw icon
-                DrawIcon hdc, cx-iconHalfSize + pCos(cAng(appNum, cnt))*appR, cy-iconHalfSize + pSin(cAng(appNum, cnt))*appR, IconHandle(cnt)
+                DrawIcon hdc, cx-iconHalfSize + pCos(cAng(appNum, cnt))*appR, cy-iconHalfSize + pSin(cAng(appNum, cnt))*appR, iconHandle(cnt)
 
                 // draw separation line
                 line cx + pCos(cAng(appNum*2, cnt*2-1))*(appR-sepHalfLength), cy + pSin(cAng(appNum*2, cnt*2-1))*(appR-sepHalfLength), cx + pCos(cAng(appNum*2, cnt*2-1))*(appR+sepHalfLength), cy + pSin(cAng(appNum*2, cnt*2-1))*(appR+sepHalfLength)
 
             loop
 
-            // check right click
-            getkey rightClick, 2
-            if (rightClick == 1) {
+            // check pressing S
+            getkey sKey, 83
+            if (sKey == 1) {
                 transition = -1
                 openSetting = 1
             }
 
             // draw message
             font msgothic, 20
+            color $FF, $FF, $FF
+            pos cx-20/2*6/2, pageMsgPos : mes "Page 1"
             color $90, $90, $90
-            pos cx-20/2*29/2, launcherMsgPos : mes "right click to enter settings"
+            pos cx-20/2*27/2, launcherMsgPos : mes "press \"S\" to enter settings"
 
         } else {  // app selecting view
             
             // preparing to draw big icon
             gsel 4, 0
             color : boxf
-            DrawIcon hdc, 0, 0, IconHandle(selecting)
+            DrawIcon hdc, 0, 0, iconHandle(selecting)
             gsel 5, 0
             gzoom iconHalfSize*2+bigIconSize, iconHalfSize*2+bigIconSize, 4, 0, 0, iconHalfSize*2, iconHalfSize*2, 1
             gsel 3, 0
@@ -392,15 +434,22 @@ goto *main
 
 
 
-*showSetting
-    gsel 0, -1
-    gsel 7, 1
-    stop
+*tabNotify
+    dupptr nmhdr, lparam, 12
+    if ((nmhdr(0) == hTab) and (nmhdr(2) == TCN_SELCHANGE)) {
+        gsel 8 + wId, -1
+        sendmsg hTab, TCM_GETCURSEL
+        wId = stat
+        gsel 8 + wId, 1
+        gsel 7, 0
+    }
+    return
 
 
 
 *exitProcess
-    if ((iParam == 0) and (ginfo_act == 7)) {
+    // exit setting screen
+    if ((iParam == 0) and (wparam == 7)) {
         openSetting = 0
         transition = -1
         gsel 7, -1
