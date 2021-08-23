@@ -2,17 +2,21 @@
 #include "highdpi.hsp"
 #include "KeyHook.hsp"
 #uselib "shell32"
-    #func ExtractIcon "ExtractIconA" int, sptr, int
+    #func ExtractIcon "ExtractIconA"        int, sptr, int
+    #func DragAcceptFiles "DragAcceptFiles" int, int
+    #func DragQueryFile   "DragQueryFileA"  int, int, int, int
+    #func DragQueryPoint  "DragQueryPoint"  int, int
+    #func DragFinish      "DragFinish"      int
 #uselib "user32"
-    #func DrawIcon "DrawIcon" int, int, int, int
-    #func GetClientRect "GetClientRect" int, int
-    #func SetWindowLong "SetWindowLongA" int, int, int
-    #func SetParent "SetParent" int, int
+    #func DrawIcon "DrawIcon"               int, int, int, int
+    #func GetClientRect "GetClientRect"     int, int
+    #func SetParent "SetParent"             int, int
+    #func SetWindowLong "SetWindowLongA"    int, int, int
 #uselib "gdi32"
-    #func BitBlt "BitBlt" int, int, int, int, int, int, int, int, int
-    #cfunc CreateDC "CreateDCA" sptr, sptr, sptr, int
-    #func DeleteDC "DeleteDC"  int
-    #cfunc GetStockObject "GetStockObject" int
+    #func BitBlt "BitBlt"                   int, int, int, int, int, int, int, int, int
+    #cfunc CreateDC "CreateDCA"             sptr, sptr, sptr, int
+    #func DeleteDC "DeleteDC"               int
+    #cfunc GetStockObject "GetStockObject"  int
 
 #module
     #define global ctype cAng(%1, %2) 2.0*M_PI/(%1)*(%2)
@@ -28,6 +32,8 @@
 #global
 
 // definition
+#define WM_DROPFILES    0x00000233
+#define WM_NOTIFY       0x0000004E
 #define TCN_SELCHANGE   0xFFFFFDD9
 #define TCM_GETCURSEL   0x0000130B
 #define SRCCOPY         0x00CC0020
@@ -96,7 +102,7 @@ if (strsize == -1) {
                     swbreak
                 // sepHalfLength
                 case 4
-                    sephalfLength = int(noteBuf)
+                    sepHalfLength = int(noteBuf)
                     swbreak
                 // triggerKey
                 case 5
@@ -172,13 +178,13 @@ buffer 5                            // for resizing icon
 buffer 6, dx, dy                    // for dark screen
     color : boxf
 
-screen 7, 960, 720, screen_hide     // setting
+screen 7, 700, 480//, screen_hide     // setting
     title "setting"
     syscolor 15 : boxf
-    winobj "systabcontrol32", "", 0, 0x52000000, 960, 720
+    winobj "systabcontrol32", "", 0, 0x52000000, ginfo_winx, ginfo_winy
     hTab = objinfo(stat, 2)
     sendmsg hTab, 0x30, GetStockObject(17)
-    tabTitle = "Common", "Apps"
+    tabTitle = "Common", "Keys", "Apps"
     dim rect, 4
     foreach tabTitle
         tcitem = 1, 0, 0, varptr(tabTitle(cnt))
@@ -186,35 +192,81 @@ screen 7, 960, 720, screen_hide     // setting
         GetClientRect hTab, varptr(rect)
         sendmsg hTab, 0x1328, 0, varptr(rect)
     loop
+    oncmd gosub *tabNotify, WM_NOTIFY
 
-// setting - common
+// setting - Common
 bgscr 8, rect(2) - rect(0), rect(3) - rect(1), screen_hide, rect(0), rect(1)
     SetWindowLong hwnd, -16, 0x40000000
     SetParent hwnd, hTab
+    color $20, $20, $20 : boxf
     font msgothic, 20
-    color
+    color $FF, $FF, $FF
     pos 20,  20 : mes "Animation"
     pos 20, 150 : mes "Selection"
     font msgothic, 16
-    color $40, $40, $40
-    pos 50,  50 : mes "blurBlend"
-    pos 50,  70 : mes "blurDepth"
-    pos 50,  90 : mes "darkBlend"
-    pos 50, 180 : mes "selectingBlend"
-    pos 50, 200 : mes "bigIconSize"
-    pos 50, 220 : mes "sepHalfLength"
-    pos 50, 240 : mes "fontSize"
-    pos 50, 260 : mes "triggerKey"
+    color $C0, $C0, $C0
+    pos  50,  50 : mes "blurBlend"
+    pos  50,  80 : mes "blurDepth"
+    pos  50, 110 : mes "darkBlend"
+    pos  50, 180 : mes "selectingBlend"
+    pos  50, 210 : mes "bigIconSize"
+    pos  50, 240 : mes "sepHalfLength"
+    pos  50, 270 : mes "fontSize"
+    font msgothic, 14
+    objmode objmode_usefont
+    blurBlendIn = blurBlend
+    blurDepthIn = blurDepth
+    darkBlendIn = DarkBlend
+    selectingBlendIn = selectingBlend
+    bigIconSizeIn = bigIconSize
+    sepHalfLengthIn = sepHalfLength
+    fontSizeIn = fontSize
+    opx = 200
+    osx = 50
+    pos opx,  48 : input blurBlendIn, osx, 20, 3
+    blurBlendInId = stat
+    pos opx,  78 : input blurDepthIn, osx, 20, 2
+    blurDepthInId = stat
+    pos opx, 108 : input darkBlendIn, osx, 20, 3
+    darkBlendInId = stat
+    pos opx, 178 : input selectingBlendIn, osx, 20, 3
+    selectingBlendInId = stat
+    pos opx, 208 : input bigIconSizeIn, osx, 20, 3
+    bigIconSizeInId = stat
+    pos opx, 238 : input sepHalfLengthIn, osx, 20, 3
+    sepHalfLengthInId = stat
+    pos opx, 268 : input fontSizeIn, osx, 20, 3
+    fontSizeInId = stat
 
-// setting - Apps
+// setting - Keys
 bgscr 9, rect(2)-rect(0), rect(3)-rect(1), screen_hide, rect(0), rect(1)
     SetWindowLong hwnd, -16, 0x40000000
     SetParent hwnd, hTab
     color $20, $20, $20 : boxf
+    color $FF, $FF, $FF
+    keyList = ""
+    foreach triggerKey
+        keyList += str(triggerKey(cnt)) + "\n"
+    loop
+    font msgothic, 14
+    objmode objmode_usefont
+    objsize 100, 30
+    pos 20,  20 : button gosub "Add", *addTriggerKey
+    pos 20,  70 : button gosub "Delete", *deleteTriggerKey
+    objsize ginfo_winx-40, ginfo_winy-120-20
+    pos 20, 120 : listbox keyListIndex, 0, keyList
+
+// setting - Apps
+bgscr 10, rect(2)-rect(0), rect(3)-rect(1), screen_hide, rect(0), rect(1)
+    SetWindowLong hwnd, -16, 0x40000000
+    SetParent hwnd, hTab
+    DragAcceptFiles hwnd, 1
+    color $20, $20, $20 : boxf
+    color $FF, $FF, $FF
+    pos 0, 0 : mes "apps"
+    oncmd gosub *dropFiles, WM_DROPFILES
 
 gsel 8, 1
-gsel 7, 0
-oncmd gosub *tabNotify, 0x4E
 
 gsel 0, 0
 
@@ -222,6 +274,20 @@ khHookLL *onKeyHook
 onexit goto *exitProcess
 
 goto *main
+
+
+
+
+
+
+*addTriggerKey
+    return
+
+*deleteTriggerKey
+    return
+
+
+
 
 
 
@@ -434,6 +500,19 @@ goto *main
 
 
 
+*dropFiles
+    hDrop = wparam
+    DragQueryFile hDrop, -1, 0, 0
+    dropNum = stat
+    sdim dropAppPath, 260
+    repeat dropNum
+        DragQueryFile hDrop, cnt, varptr(dropAppPath), 260
+        dialog dropAppPath
+    loop
+    return
+
+
+
 *tabNotify
     dupptr nmhdr, lparam, 12
     if ((nmhdr(0) == hTab) and (nmhdr(2) == TCN_SELCHANGE)) {
@@ -449,7 +528,7 @@ goto *main
 
 *exitProcess
     // exit setting screen
-    if ((iParam == 0) and (wparam == 7)) {
+    if ((iparam == 0) and (wparam == 7)) {
         openSetting = 0
         transition = -1
         gsel 7, -1
