@@ -92,7 +92,7 @@ cy = dy/2
 
 // pre-process
 keySwitch = 0
-openSetting = STAT_INI ;STAT_YET
+openSetting = STAT_YET
 keyAddition = STAT_YET
 keyDeletion = STAT_YET
 transition = -1
@@ -231,7 +231,8 @@ buffer 5                            // for resizing icon
 buffer 6, dx, dy                    // for dark screen
     color : boxf
 
-screen 7, 700, 480, screen_hide     // setting
+// setting
+screen 7, 700, 480, screen_hide or screen_fixedsize
     title "setting"
     syscolor 15 : boxf
     winobj "systabcontrol32", "", 0, 0x52000000, ginfo_winx, ginfo_winy
@@ -302,6 +303,7 @@ bgscr 9, rect(2)-rect(0), rect(3)-rect(1), screen_hide, rect(0), rect(1)
     objsize 100, 30
     pos 20,  20 : button gosub "Add", *addTriggerKey
     pos 20,  70 : button gosub "Delete", *deleteTriggerKey
+    keyListIndex = -1
     keyList = ""
     objsize ginfo_winx-40, ginfo_winy-120-20
     pos 20, 120 : listbox keyListIndex, 0, keyList
@@ -352,7 +354,12 @@ goto *main
 // label
 *main
     if (openSetting == STAT_INI) {
+
+        cx = (rect(2)-rect(0)) / 2
+        cy = (rect(3)-rect(1)) / 2
+        appR = (0.05*appNum + 0.1) * cy
         gosub *showSetting
+
     } else : if (openSetting == STAT_MID) {
 
         // key addition
@@ -394,6 +401,13 @@ goto *main
             keyListIndex = -1
             keyDeletion = STAT_YET
         }
+    
+    } else : if (openSetting == STAT_END) {
+
+        cx = dx/2
+        cy = dy/2
+        appR = (0.05*appNum + 0.1) * cy
+        openSetting = STAT_YET
 
     } else {
         if (keySwitch) {
@@ -652,7 +666,7 @@ goto *main
 *exitProcess
     // exit setting screen
     if ((iparam == 0) and (wparam == 7)) {
-        openSetting = STAT_YET
+        openSetting = STAT_END
         transition = -1
         gsel 7, -1
     } else {
