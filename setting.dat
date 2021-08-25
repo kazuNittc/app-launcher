@@ -1,8 +1,8 @@
-128      // blurBlend
-3        // blurDepth
-20       // selectingBlend
-40       // bigIconSize
-3        // sepHalfLength
-160,162  // triggerKey
-60       // darkBlend
-20       // fontSize
+128                 // blurBlend
+3                   // blurDepth
+20                  // selectingBlend
+40                  // bigIconSize
+3                   // sepHalfLength
+160:Shift,162:Ctrl  // triggerKey
+60                  // darkBlend
+20                  // fontSize

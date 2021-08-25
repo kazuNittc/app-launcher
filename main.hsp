@@ -29,6 +29,46 @@
             ang = 2.0*M_PI + ang
         }
         return ang
+    #defcfunc ls array m, int i
+        foreach m
+            if (m(cnt) == i) { return cnt }
+        loop
+        return -1
+    #deffunc iArrDel array m, int i
+        n = length(m) - 1
+        dim arr, n
+        ic = 0
+        foreach m
+            if (m(cnt) == i) {
+                continue
+            } else {
+                arr(ic) = m(cnt)
+            }
+            ic++
+        loop
+        dim m, n
+        foreach arr
+        	m(cnt) = arr(cnt)
+        loop
+        return
+
+    #deffunc sArrDel array m, str i
+        n = length(m) - 1
+        sdim arr, n
+        ic = 0
+        foreach m
+            if (m(cnt) == i) {
+                continue
+            } else {
+                arr(ic) = m(cnt)
+            }
+            ic++
+        loop
+        sdim m, n
+        foreach arr
+        	m(cnt) = arr(cnt)
+        loop
+        return
 #global
 
 // definition
@@ -40,6 +80,10 @@
 #define CAPTUREBLT      0x40000000
 #define APPDAT          "app.dat"
 #define SETDAT          "setting.dat"
+#enum STAT_YET = 0
+#enum STAT_INI
+#enum STAT_MID
+#enum STAT_END
 iconHalfSize = 16
 dx = ginfo_dispx
 dy = ginfo_dispy
@@ -48,6 +92,9 @@ cy = dy/2
 
 // pre-process
 keySwitch = 0
+openSetting = STAT_INI ;STAT_YET
+keyAddition = STAT_YET
+keyDeletion = STAT_YET
 transition = -1
 selecting = -1
 wId = 0
@@ -61,6 +108,8 @@ selectingBlend = 40
 bigIconSize = 40
 sepHalfLength = 5
 triggerKey = 160, 162
+triggerKeyName = "Shift", "Ctrl"
+triggerKeyPush = 0, 0
 darkBlend = 50
 fontSize = 14
 
@@ -107,8 +156,12 @@ if (strsize == -1) {
                 // triggerKey
                 case 5
                     split noteBuf, ",", sBuf
+                    dim triggerKey, length(sBuf)
+                    dim triggerKeyName, length(sBuf)
+                    dim triggerKeyPush, length(sBuf)
                     foreach sBuf
-                        triggerKey(cnt) = int(sBuf(cnt))
+                        split sBuf(cnt), ":", iBuf, triggerKeyName(cnt)
+                        triggerKey(cnt) = int(iBuf)
                         triggerKeyPush(cnt) = 0
                     loop
                     swbreak
@@ -178,7 +231,7 @@ buffer 5                            // for resizing icon
 buffer 6, dx, dy                    // for dark screen
     color : boxf
 
-screen 7, 700, 480//, screen_hide     // setting
+screen 7, 700, 480, screen_hide     // setting
     title "setting"
     syscolor 15 : boxf
     winobj "systabcontrol32", "", 0, 0x52000000, ginfo_winx, ginfo_winy
@@ -244,17 +297,16 @@ bgscr 9, rect(2)-rect(0), rect(3)-rect(1), screen_hide, rect(0), rect(1)
     SetParent hwnd, hTab
     color $20, $20, $20 : boxf
     color $FF, $FF, $FF
-    keyList = ""
-    foreach triggerKey
-        keyList += str(triggerKey(cnt)) + "\n"
-    loop
     font msgothic, 14
     objmode objmode_usefont
     objsize 100, 30
     pos 20,  20 : button gosub "Add", *addTriggerKey
     pos 20,  70 : button gosub "Delete", *deleteTriggerKey
+    keyList = ""
     objsize ginfo_winx-40, ginfo_winy-120-20
     pos 20, 120 : listbox keyListIndex, 0, keyList
+    keyListId = stat
+    gosub *updateKeyList
 
 // setting - Apps
 bgscr 10, rect(2)-rect(0), rect(3)-rect(1), screen_hide, rect(0), rect(1)
@@ -271,7 +323,7 @@ gsel 8, 1
 gsel 0, 0
 
 khHookLL *onKeyHook
-onexit goto *exitProcess
+onexit gosub *exitProcess
 
 goto *main
 
@@ -281,9 +333,11 @@ goto *main
 
 
 *addTriggerKey
+    keyAddition = STAT_INI
     return
 
 *deleteTriggerKey
+    keyDeletion = STAT_MID
     return
 
 
@@ -293,8 +347,48 @@ goto *main
 
 // label
 *main
-    if (openSetting) {
-        goto *showSetting
+    if (openSetting == STAT_INI) {
+        gosub *showSetting
+    } else : if (openSetting == STAT_MID) {
+
+        // key addition
+        if (keyAddition == STAT_INI) {
+            gsel 9, 0
+            font msgothic, 16
+            color $FF, $FF, $FF
+            pos 150, 25 : mes "Press key to add (ESC -> Cancel)"
+            newTriggerKey = 0
+            newTriggerKeyName = ""
+            keyAddition = STAT_MID
+        } else : if (keyAddition == STAT_END) {
+            // adding trigger key
+            if (newTriggerKey != -1) {
+                if (ls(triggerKey, newTriggerKey) == -1) {
+                    triggerKey(length(triggerKey)) = newTriggerKey
+                    triggerKeyName(length(triggerKeyName)) = newTriggerKeyName
+                    dim triggerKeyPush, length(triggerKeyPush)+1
+                    // redraw trigger key list
+                    keyList += newTriggerKeyName + " : " + str(newTriggerKey) + "\n"
+                    objprm keyListId, keyList
+                }
+            }
+            color $20, $20, $20 : boxf 150, 20, 450, 50
+            keyAddition = STAT_YET
+        }
+
+        // key deletion
+        if (keyDeletion == STAT_MID) {
+            if ((keyListIndex != -1) and (keyListIndex < length(triggerKey)) and (length(triggerKey) > 1)) {
+                iArrDel triggerKey, triggerKey(keyListIndex)
+                sArrDel triggerKeyName, triggerKeyName(keyListIndex)
+                dim triggerKeyPush, length(triggerKeyPush)-1
+                notesel keyList
+                notedel keyListIndex
+                gosub *updateKeyList
+            }
+            keyDeletion = STAT_YET
+        }
+
     } else {
         if (keySwitch) {
             redraw 0
@@ -309,10 +403,21 @@ goto *main
 
 
 
+*updateKeyList
+    keyList = ""
+    foreach triggerKey
+        keyList += triggerKeyName(cnt) + " : " + str(triggerKey(cnt)) + "\n"
+    loop
+    objprm keyListId, keyList
+    return
+
+
+
 *showSetting
     gsel 0, -1
     gsel 7, 2
-    stop
+    openSetting = STAT_MID
+    return
 
 
 
@@ -464,37 +569,49 @@ goto *main
 
 *onKeyHook
     // press esc to exit
-    if (khKeyCode == 27) { end }
+    if (keyAddition == STAT_MID) {
 
-    // trigger key check
-    foreach triggerKey
-        if (khKeyCode == triggerKey(cnt)) {
-            if (khStat == 0) {  // pushed
-                triggerKeyPush(cnt) = 1
-            } else : if (khStat == 2) {  // released
-                triggerKeyPush(cnt) = 0
+        if (khKeyCode == 27) {
+            newTriggerKey = -1
+        } else {  // not esc key
+            newTriggerKey = khKeyCode
+            newTriggerKeyName = khKeyName
+        }
+        keyAddition == STAT_END
+
+    } else : if (keyAddition == STAT_YET) {
+
+        // trigger key check
+        foreach triggerKey
+            if (khKeyCode == triggerKey(cnt)) {
+                if (khStat == 0) {  // pushed
+                    triggerKeyPush(cnt) = 1
+                } else : if (khStat == 2) {  // released
+                    triggerKeyPush(cnt) = 0
+                }
             }
-        }
-    loop
+        loop
 
-    // get AND OR
-    keyPushAnd = 1
-    keyPushOr = 0
-    foreach triggerKeyPush
-        if (triggerKeyPush(cnt)) {
-            keyPushAnd = keyPushAnd and 1
-            keyPushOr = keyPushOr or 1
-        } else {
-            keyPushAnd = keyPushAnd and 0
-            keyPushOr = keyPushOr or 0
-        }
-    loop
+        // get AND OR
+        keyPushAnd = 1
+        keyPushOr = 0
+        foreach triggerKeyPush
+            if (triggerKeyPush(cnt)) {
+                keyPushAnd = keyPushAnd and 1
+                keyPushOr = keyPushOr or 1
+            } else {
+                keyPushAnd = keyPushAnd and 0
+                keyPushOr = keyPushOr or 0
+            }
+        loop
 
-    // judge
-    if ((keyPushAnd == 1) and (keySwitch == 0)) {
-        keySwitch = 1
-    } else : if ((keyPushOr == 0) and (keySwitch == 1)) {
-        keySwitch = 0
+        // judge
+        if ((keyPushAnd == 1) and (keySwitch == 0)) {
+            keySwitch = 1
+        } else : if ((keyPushOr == 0) and (keySwitch == 1)) {
+            keySwitch = 0
+        }
+
     }
     return
 
@@ -529,10 +646,10 @@ goto *main
 *exitProcess
     // exit setting screen
     if ((iparam == 0) and (wparam == 7)) {
-        openSetting = 0
+        openSetting = STAT_YET
         transition = -1
         gsel 7, -1
-        goto *main
     } else {
         end
     }
+    return
