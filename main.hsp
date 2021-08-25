@@ -338,6 +338,10 @@ goto *main
 
 *deleteTriggerKey
     keyDeletion = STAT_MID
+    if (keyAddition == STAT_MID) {
+        newTriggerKey = -1
+        keyAddition = STAT_END
+    }
     return
 
 
@@ -369,10 +373,11 @@ goto *main
                     dim triggerKeyPush, length(triggerKeyPush)+1
                     // redraw trigger key list
                     keyList += newTriggerKeyName + " : " + str(newTriggerKey) + "\n"
-                    objprm keyListId, keyList
+                    gosub *updateKeyList
                 }
             }
             color $20, $20, $20 : boxf 150, 20, 450, 50
+            keyListIndex = -1
             keyAddition = STAT_YET
         }
 
@@ -386,6 +391,7 @@ goto *main
                 notedel keyListIndex
                 gosub *updateKeyList
             }
+            keyListIndex = -1
             keyDeletion = STAT_YET
         }
 
