@@ -316,8 +316,6 @@ bgscr 10, rect(2)-rect(0), rect(3)-rect(1), screen_hide, rect(0), rect(1)
     SetParent hwnd, hTab
     DragAcceptFiles hwnd, 1
     color $20, $20, $20 : boxf
-    color $FF, $FF, $FF
-    pos 0, 0 : mes "apps"
     oncmd gosub *dropFiles, WM_DROPFILES
 
 gsel 8, 1
@@ -331,38 +329,29 @@ goto *main
 
 
 
-
-
-
-*addTriggerKey
-    keyAddition = STAT_INI
-    return
-
-*deleteTriggerKey
-    keyDeletion = STAT_MID
-    if (keyAddition == STAT_MID) {
-        newTriggerKey = -1
-        keyAddition = STAT_END
-    }
-    return
-
-
-
-
-
-
 // label
+*pre
+
+
+
+
 *main
     if (openSetting == STAT_INI) {
 
         cx = (rect(2)-rect(0)) / 2
         cy = (rect(3)-rect(1)) / 2
-        appR = (0.05*appNum + 0.1) * cy
+        appR = cy - 70
+        selecting = -2
+
+        gsel 10, 0
+        color $20, $20, $20 : boxf
+        gosub *drawApps
+
         gosub *showSetting
 
     } else : if (openSetting == STAT_MID) {
 
-        // key addition
+        // trigger key addition
         if (keyAddition == STAT_INI) {
             gsel 9, 0
             font msgothic, 16
@@ -388,7 +377,7 @@ goto *main
             keyAddition = STAT_YET
         }
 
-        // key deletion
+        // trigger key deletion
         if (keyDeletion == STAT_MID) {
             if ((keyListIndex != -1) and (keyListIndex < length(triggerKey)) and (length(triggerKey) > 1)) {
                 iArrDel triggerKey, triggerKey(keyListIndex)
@@ -401,12 +390,23 @@ goto *main
             keyListIndex = -1
             keyDeletion = STAT_YET
         }
+
+        // app addition
+        if (appAddition == STAT_INI) {
+            redraw 0
+                gsel 10, 0
+                color $20, $20, $20 : boxf
+                gosub *drawApps
+            redraw 1
+            appAddition = STAT_YET
+        }
     
     } else : if (openSetting == STAT_END) {
 
         cx = dx/2
         cy = dy/2
         appR = (0.05*appNum + 0.1) * cy
+        selecting = -1
         openSetting = STAT_YET
 
     } else {
@@ -420,6 +420,21 @@ goto *main
     }
     wait 1
     goto *main
+
+
+*addTriggerKey
+    keyAddition = STAT_INI
+    return
+
+
+
+*deleteTriggerKey
+    keyDeletion = STAT_MID
+    if (keyAddition == STAT_MID) {
+        newTriggerKey = -1
+        keyAddition = STAT_END
+    }
+    return
 
 
 
@@ -492,6 +507,7 @@ goto *main
 
     } else : if (transition > blurDepth) {
         // detect app selection
+        mouseRad = pT(mousex-cx, mousey-cy)
         if (pR(mousex-cx, mousey-cy) >= appR) {
             if ((cAng(appNum*2, appNum*2-1) < mouseRad) | (mouseRad < cAng(appNum*2, 1))) {
                 selecting = 0
@@ -502,86 +518,91 @@ goto *main
             }
         } else { selecting = -1 }
 
+        // check pressing S key
+        getkey sKey, 83
+        if (sKey) {
+            transition = -1
+            openSetting = 1
+        }
+
         // screen blend
         gsel 0, 0
         gmode
         pos 0, 0 : gcopy 1, 0, 0, dx, dy
 
-        // draw center circle
-        color $80, $80, $80
-        circle cx-appR, cy-appR, cx+appR, cy+appR, 0
-        color $ff, $ff, $ff
-        mouseRad = pT(mousex-cx, mousey-cy)
-        mouseViewR = 0.6 * cy
+        gosub *drawApps
+    }
+    return
 
-        // draw info (debug)
-        font msgothic, 16
-        pos 0,   0 : mes "mouse = (" + mousex + ", " + mousey + ")"
-        pos 0,  20 : mes "ginfo_disp = (" + dx + ", " + dy + ")"
-        pos 0,  40 : mes "polar R = " + pR(mousex-cx, mousey-cy)
-        pos 0,  60 : mes "polar T = " + mouseRad
-        pos 0,  80 : mes "selecting = " + selecting
-        pos 0, 100 : mes "appR = " + appR
 
-        // draw center to mouse position
-        ;line cx, cy, mousex, mousey
 
-        if (selecting == -1) {  // app list view
-            repeat appNum
-                // draw icon
-                DrawIcon hdc, cx-iconHalfSize + pCos(cAng(appNum, cnt))*appR, cy-iconHalfSize + pSin(cAng(appNum, cnt))*appR, iconHandle(cnt)
+*drawApps
+    // draw center circle
+    color $80, $80, $80
+    circle cx-appR, cy-appR, cx+appR, cy+appR, 0
+    color $ff, $ff, $ff
 
-                // draw separation line
-                line cx + pCos(cAng(appNum*2, cnt*2-1))*(appR-sepHalfLength), cy + pSin(cAng(appNum*2, cnt*2-1))*(appR-sepHalfLength), cx + pCos(cAng(appNum*2, cnt*2-1))*(appR+sepHalfLength), cy + pSin(cAng(appNum*2, cnt*2-1))*(appR+sepHalfLength)
+    // draw info (debug)
+    ;font msgothic, 16
+    ;pos 0,   0 : mes "mouse = (" + mousex + ", " + mousey + ")"
+    ;pos 0,  20 : mes "ginfo_disp = (" + dx + ", " + dy + ")"
+    ;pos 0,  40 : mes "polar R = " + pR(mousex-cx, mousey-cy)
+    ;pos 0,  60 : mes "polar T = " + mouseRad
+    ;pos 0,  80 : mes "selecting = " + selecting
+    ;pos 0, 100 : mes "appR = " + appR
 
-            loop
+    // draw center to mouse position
+    ;line cx, cy, mousex, mousey
 
-            // check pressing S
-            getkey sKey, 83
-            if (sKey == 1) {
-                transition = -1
-                openSetting = 1
-            }
+    if (selecting < 0) {  // app list view
+        repeat appNum
+            // draw icon
+            DrawIcon hdc, cx-iconHalfSize + pCos(cAng(appNum, cnt))*appR, cy-iconHalfSize + pSin(cAng(appNum, cnt))*appR, iconHandle(cnt)
 
-            // draw message
+            // draw separation line
+            line cx + pCos(cAng(appNum*2, cnt*2-1))*(appR-sepHalfLength), cy + pSin(cAng(appNum*2, cnt*2-1))*(appR-sepHalfLength), cx + pCos(cAng(appNum*2, cnt*2-1))*(appR+sepHalfLength), cy + pSin(cAng(appNum*2, cnt*2-1))*(appR+sepHalfLength)
+
+        loop
+
+        // draw message
+        if (selecting == -1) {
             font msgothic, 20
             color $FF, $FF, $FF
             pos cx-20/2*6/2, pageMsgPos : mes "Page 1"
             color $90, $90, $90
             pos cx-20/2*27/2, launcherMsgPos : mes "press \"S\" to enter settings"
-
-        } else {  // app selecting view
-            
-            // preparing to draw big icon
-            gsel 4, 0
-            color : boxf
-            DrawIcon hdc, 0, 0, iconHandle(selecting)
-            gsel 5, 0
-            gzoom iconHalfSize*2+bigIconSize, iconHalfSize*2+bigIconSize, 4, 0, 0, iconHalfSize*2, iconHalfSize*2, 1
-            gsel 3, 0
-            ;hsvcolor 192/appNum * selecting, 255, 255 : boxf
-            color appColor(selecting) >> 16, appColor(selecting) >> 8 & 0xFF, appColor(selecting) & 0xFF : boxf
-
-            // blend background color
-            gsel 0, 0
-            gmode gmode_alpha, dx, dy, selectingBlend
-            pos 0, 0 : gcopy 3, 0, 0, dx, dy
-
-            // draw big icon
-            gmode gmode_rgb0
-            pos cx-iconHalfSize-bigIconSize/2 + pCos(cAng(appNum, selecting))*appR, cy-iconHalfSize-bigIconSize/2 + pSin(cAng(appNum, selecting))*appR
-            gcopy 5, 0, 0, iconHalfSize*2+bigIconSize, iconHalfSize*2+bigIconSize
-
-            // draw message
-            font msgothic, fontSize
-            color $FF, $FF, $FF
-            pos cx-fontSize/2*strlen(appName(selecting))/2, launcherMsgPos : mes appName(selecting)
-
-            // draw selecting line
-            ;color $40, $40, $40
-            ;line cx, cy, cx + pCos(cAng(appNum*2, selecting*2-1))*appR, cy + pSin(cAng(appNum*2, selecting*2-1))*appR
-            ;line cx, cy, cx + pCos(cAng(appNum*2, selecting*2+1))*appR, cy + pSin(cAng(appNum*2, selecting*2+1))*appR
         }
+
+    } else {  // app selecting view
+        
+        // preparing to draw big icon
+        gsel 4, 0
+        color : boxf
+        DrawIcon hdc, 0, 0, iconHandle(selecting)
+        gsel 5, 0
+        gzoom iconHalfSize*2+bigIconSize, iconHalfSize*2+bigIconSize, 4, 0, 0, iconHalfSize*2, iconHalfSize*2, 1
+        gsel 3, 0
+        color appColor(selecting) >> 16, appColor(selecting) >> 8 & 0xFF, appColor(selecting) & 0xFF : boxf
+
+        // blend background color
+        gsel 0, 0
+        gmode gmode_alpha, dx, dy, selectingBlend
+        pos 0, 0 : gcopy 3, 0, 0, dx, dy
+
+        // draw big icon
+        gmode gmode_rgb0
+        pos cx-iconHalfSize-bigIconSize/2 + pCos(cAng(appNum, selecting))*appR, cy-iconHalfSize-bigIconSize/2 + pSin(cAng(appNum, selecting))*appR
+        gcopy 5, 0, 0, iconHalfSize*2+bigIconSize, iconHalfSize*2+bigIconSize
+
+        // draw message
+        font msgothic, fontSize
+        color $FF, $FF, $FF
+        pos cx-fontSize/2*strlen(appName(selecting))/2, launcherMsgPos : mes appName(selecting)
+
+        // draw selecting line
+        ;color $40, $40, $40
+        ;line cx, cy, cx + pCos(cAng(appNum*2, selecting*2-1))*appR, cy + pSin(cAng(appNum*2, selecting*2-1))*appR
+        ;line cx, cy, cx + pCos(cAng(appNum*2, selecting*2+1))*appR, cy + pSin(cAng(appNum*2, selecting*2+1))*appR
     }
     return
 
@@ -631,7 +652,6 @@ goto *main
         } else : if ((keyPushOr == 0) and (keySwitch == 1)) {
             keySwitch = 0
         }
-
     }
     return
 
@@ -641,11 +661,16 @@ goto *main
     hDrop = wparam
     DragQueryFile hDrop, -1, 0, 0
     dropNum = stat
-    sdim dropAppPath, 260
+    sdim dropAppPath, dromNum, 260
     repeat dropNum
-        DragQueryFile hDrop, cnt, varptr(dropAppPath), 260
-        dialog dropAppPath
+        DragQueryFile hDrop, cnt, varptr(dropAppPath(cnt)), 260
+        appPath(appNum) = dropAppPath(cnt)
+        ExtractIcon hInstance, appPath(appNum), 0
+        iconHandle(appNum) = stat
+        if (stat == 0) : dialog "loading failed."
+        appNum++
     loop
+    appAddition = STAT_INI
     return
 
 
