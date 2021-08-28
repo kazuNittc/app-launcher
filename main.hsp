@@ -78,260 +78,258 @@
 #define TCM_GETCURSEL   0x0000130B
 #define SRCCOPY         0x00CC0020
 #define CAPTUREBLT      0x40000000
+#define iconHalfSize    16
 #define APPDAT          "app.dat"
 #define SETDAT          "setting.dat"
 #enum STAT_YET = 0
 #enum STAT_INI
 #enum STAT_MID
 #enum STAT_END
-iconHalfSize = 16
 dx = ginfo_dispx
 dy = ginfo_dispy
 cx = dx/2
 cy = dy/2
 
-// pre-process
-keySwitch = 0
-openSetting = STAT_YET
-keyAddition = STAT_YET
-keyDeletion = STAT_YET
-transition = -1
-selecting = -1
-wId = 0
-appDatContents = ""
-setDatContents = ""
-
-// inital value
-blurBlend = 128
-blurDepth = 3
-selectingBlend = 40
-bigIconSize = 40
-sepHalfLength = 5
-triggerKey = 160, 162
-triggerKeyName = "Shift", "Ctrl"
-triggerKeyPush = 0, 0
-darkBlend = 50
-fontSize = 14
-
-// file io
-//      setting.dat
-notesel setDatContents
-exist SETDAT
-if (strsize == -1) {
-    notesave SETDAT
-} else {
-    noteload SETDAT
-    if (setDatContents == "") {
-        dialog "setting.dat is empty"
-        end
-    } else {
-        repeat notemax
-            noteget noteBuf, cnt
-            // hoken
-            if (noteBuf == "") { break }
-            // for debug
-            noteBuf = strtrim(noteBuf, 3)
-            split noteBuf, "//", noteBuf, dummy
-            switch cnt
-                // blurBlend
-                case 0
-                    blurBlend = int(noteBuf)
-                    swbreak
-                // blurDepth
-                case 1
-                    blurDepth = int(noteBuf)
-                    swbreak
-                // selectingBlend
-                case 2
-                    selectingBlend = int(noteBuf)
-                    swbreak
-                // bigIconSize
-                case 3
-                    bigIconSize = int(noteBuf)
-                    swbreak
-                // sepHalfLength
-                case 4
-                    sepHalfLength = int(noteBuf)
-                    swbreak
-                // triggerKey
-                case 5
-                    split noteBuf, ",", sBuf
-                    dim triggerKey, length(sBuf)
-                    dim triggerKeyName, length(sBuf)
-                    dim triggerKeyPush, length(sBuf)
-                    foreach sBuf
-                        split sBuf(cnt), ":", iBuf, triggerKeyName(cnt)
-                        triggerKey(cnt) = int(iBuf)
-                        triggerKeyPush(cnt) = 0
-                    loop
-                    swbreak
-                // darkBlend
-                case 6
-                    darkBlend = int(noteBuf)
-                    swbreak
-                // fontSize
-                case 7
-                    fontSize = int(noteBuf)
-                    swbreak
-            swend
-        loop
-    }
-}
-
-//      app.dat
-notesel appDatContents
-exist APPDAT
-appPath = ""
-if (strSize == -1) {
-    notesave APPDAT
-} else {
-    noteload APPDAT
-    if (appDatContents == "") {
-        end
-    } else {
-        sdim appPath, notemax
-        sdim appName, notemax
-        repeat notemax
-            noteget noteBuf, cnt
-            // hoken
-            if (noteBuf == "") { break }
-            split noteBuf, "|", appPath(cnt), appName(cnt)
-        loop
-    }
-}
-
-// load icon
-appNum = length(appPath)
-dim iconHandle, appNum
-repeat appNum
-    ExtractIcon hInstance, appPath(cnt), 0
-    iconHandle(cnt) = stat
-    if (stat == 0) : dialog "loading failed."
-loop
-
-appR = (0.05*appNum + 0.1) * cy
-pageMsgPos = cy - appR - (iconHalfSize*2 + bigIconSize/2) - fontSize - 10
-launcherMsgPos = cy + appR + (iconHalfSize*2 + bigIconSize/2) + 10
-
-// screen
-bgscr 0, dx, dy, screen_hide, 0, 0  // main
-buffer 1, dx, dy                    // for screen shot
-buffer 2, dx, dy                    // for blended screen
-buffer 3, dx, dy                    // for colored screen
-    dim appColor, appNum
-    repeat appNum
-        DrawIcon hdc, 0, 0, iconHandle(cnt)
-        pos 0, 0 : gzoom 1, 1, 3, 0, 0, 32, 32, 1
-        pget 0, 0
-        appColor(cnt) = ginfo_r << 16 | ginfo_g << 8 | ginfo_b
-    loop
-
-buffer 4                            // for drawing icon
-buffer 5                            // for resizing icon
-buffer 6, dx, dy                    // for dark screen
-    color : boxf
-
-// setting
-screen 7, 700, 480, screen_hide or screen_fixedsize
-    title "setting"
-    syscolor 15 : boxf
-    winobj "systabcontrol32", "", 0, 0x52000000, ginfo_winx, ginfo_winy
-    hTab = objinfo(stat, 2)
-    sendmsg hTab, 0x30, GetStockObject(17)
-    tabTitle = "Common", "Keys", "Apps"
-    dim rect, 4
-    foreach tabTitle
-        tcitem = 1, 0, 0, varptr(tabTitle(cnt))
-        sendmsg hTab, 0x1307, cnt, varptr(tcitem)
-        GetClientRect hTab, varptr(rect)
-        sendmsg hTab, 0x1328, 0, varptr(rect)
-    loop
-    oncmd gosub *tabNotify, WM_NOTIFY
-
-// setting - Common
-bgscr 8, rect(2) - rect(0), rect(3) - rect(1), screen_hide, rect(0), rect(1)
-    SetWindowLong hwnd, -16, 0x40000000
-    SetParent hwnd, hTab
-    color $20, $20, $20 : boxf
-    font msgothic, 20
-    color $FF, $FF, $FF
-    pos 20,  20 : mes "Animation"
-    pos 20, 150 : mes "Selection"
-    font msgothic, 16
-    color $C0, $C0, $C0
-    pos  50,  50 : mes "blurBlend"
-    pos  50,  80 : mes "blurDepth"
-    pos  50, 110 : mes "darkBlend"
-    pos  50, 180 : mes "selectingBlend"
-    pos  50, 210 : mes "bigIconSize"
-    pos  50, 240 : mes "sepHalfLength"
-    pos  50, 270 : mes "fontSize"
-    font msgothic, 14
-    objmode objmode_usefont
-    blurBlendIn = blurBlend
-    blurDepthIn = blurDepth
-    darkBlendIn = DarkBlend
-    selectingBlendIn = selectingBlend
-    bigIconSizeIn = bigIconSize
-    sepHalfLengthIn = sepHalfLength
-    fontSizeIn = fontSize
-    opx = 200
-    osx = 50
-    pos opx,  48 : input blurBlendIn, osx, 20, 3
-    blurBlendInId = stat
-    pos opx,  78 : input blurDepthIn, osx, 20, 2
-    blurDepthInId = stat
-    pos opx, 108 : input darkBlendIn, osx, 20, 3
-    darkBlendInId = stat
-    pos opx, 178 : input selectingBlendIn, osx, 20, 3
-    selectingBlendInId = stat
-    pos opx, 208 : input bigIconSizeIn, osx, 20, 3
-    bigIconSizeInId = stat
-    pos opx, 238 : input sepHalfLengthIn, osx, 20, 3
-    sepHalfLengthInId = stat
-    pos opx, 268 : input fontSizeIn, osx, 20, 3
-    fontSizeInId = stat
-
-// setting - Keys
-bgscr 9, rect(2)-rect(0), rect(3)-rect(1), screen_hide, rect(0), rect(1)
-    SetWindowLong hwnd, -16, 0x40000000
-    SetParent hwnd, hTab
-    color $20, $20, $20 : boxf
-    color $FF, $FF, $FF
-    font msgothic, 14
-    objmode objmode_usefont
-    objsize 100, 30
-    pos 20,  20 : button gosub "Add", *addTriggerKey
-    pos 20,  70 : button gosub "Delete", *deleteTriggerKey
-    keyListIndex = -1
-    keyList = ""
-    objsize ginfo_winx-40, ginfo_winy-120-20
-    pos 20, 120 : listbox keyListIndex, 0, keyList
-    keyListId = stat
-    gosub *updateKeyList
-
-// setting - Apps
-bgscr 10, rect(2)-rect(0), rect(3)-rect(1), screen_hide, rect(0), rect(1)
-    SetWindowLong hwnd, -16, 0x40000000
-    SetParent hwnd, hTab
-    DragAcceptFiles hwnd, 1
-    color $20, $20, $20 : boxf
-    oncmd gosub *dropFiles, WM_DROPFILES
-
-gsel 8, 1
-
-gsel 0, 0
-
-khHookLL *onKeyHook
-onexit gosub *exitProcess
-
-goto *main
-
 
 
 // label
 *pre
+    // pre-process
+    keySwitch = 0
+    openSetting = STAT_YET
+    keyAddition = STAT_YET
+    keyDeletion = STAT_YET
+    transition = -1
+    selecting = -1
+    wId = 0
+    appDatContents = ""
+    setDatContents = ""
 
+    // inital value
+    blurBlend = 128
+    blurDepth = 3
+    selectingBlend = 40
+    bigIconSize = 40
+    sepHalfLength = 5
+    triggerKey = 160, 162
+    triggerKeyName = "Shift", "Ctrl"
+    triggerKeyPush = 0, 0
+    darkBlend = 50
+    fontSize = 14
+
+    // file io
+    //      setting.dat
+    notesel setDatContents
+    exist SETDAT
+    if (strsize == -1) {
+        notesave SETDAT
+    } else {
+        noteload SETDAT
+        if (setDatContents == "") {
+            dialog "setting.dat is empty"
+            end
+        } else {
+            repeat notemax
+                noteget noteBuf, cnt
+                // hoken
+                if (noteBuf == "") { break }
+                // for debug
+                noteBuf = strtrim(noteBuf, 3)
+                split noteBuf, "//", noteBuf, dummy
+                switch cnt
+                    // blurBlend
+                    case 0
+                        blurBlend = int(noteBuf)
+                        swbreak
+                    // blurDepth
+                    case 1
+                        blurDepth = int(noteBuf)
+                        swbreak
+                    // selectingBlend
+                    case 2
+                        selectingBlend = int(noteBuf)
+                        swbreak
+                    // bigIconSize
+                    case 3
+                        bigIconSize = int(noteBuf)
+                        swbreak
+                    // sepHalfLength
+                    case 4
+                        sepHalfLength = int(noteBuf)
+                        swbreak
+                    // triggerKey
+                    case 5
+                        split noteBuf, ",", sBuf
+                        dim triggerKey, length(sBuf)
+                        dim triggerKeyName, length(sBuf)
+                        dim triggerKeyPush, length(sBuf)
+                        foreach sBuf
+                            split sBuf(cnt), ":", iBuf, triggerKeyName(cnt)
+                            triggerKey(cnt) = int(iBuf)
+                            triggerKeyPush(cnt) = 0
+                        loop
+                        swbreak
+                    // darkBlend
+                    case 6
+                        darkBlend = int(noteBuf)
+                        swbreak
+                    // fontSize
+                    case 7
+                        fontSize = int(noteBuf)
+                        swbreak
+                swend
+            loop
+        }
+    }
+
+    //      app.dat
+    notesel appDatContents
+    exist APPDAT
+    appPath = ""
+    if (strSize == -1) {
+        notesave APPDAT
+    } else {
+        noteload APPDAT
+        if (appDatContents == "") {
+            end
+        } else {
+            sdim appPath, notemax
+            sdim appName, notemax
+            repeat notemax
+                noteget noteBuf, cnt
+                // hoken
+                if (noteBuf == "") { break }
+                split noteBuf, "|", appPath(cnt), appName(cnt)
+            loop
+        }
+    }
+
+    // load icon
+    appNum = length(appPath)
+    dim iconHandle, appNum
+    repeat appNum
+        ExtractIcon hInstance, appPath(cnt), 0
+        iconHandle(cnt) = stat
+        if (stat == 0) : dialog "loading failed."
+    loop
+
+    appR = (0.05*appNum + 0.1) * cy
+    pageMsgPos = cy - appR - (iconHalfSize*2 + bigIconSize/2) - fontSize - 10
+    launcherMsgPos = cy + appR + (iconHalfSize*2 + bigIconSize/2) + 10
+
+    // screen
+    bgscr 0, dx, dy, screen_hide, 0, 0  // main
+    buffer 1, dx, dy                    // for screen shot
+    buffer 2, dx, dy                    // for blended screen
+    buffer 3, dx, dy                    // for colored screen
+        dim appColor, appNum
+        repeat appNum
+            DrawIcon hdc, 0, 0, iconHandle(cnt)
+            pos 0, 0 : gzoom 1, 1, 3, 0, 0, 32, 32, 1
+            pget 0, 0
+            appColor(cnt) = ginfo_r << 16 | ginfo_g << 8 | ginfo_b
+        loop
+
+    buffer 4                            // for drawing icon
+    buffer 5                            // for resizing icon
+    buffer 6, dx, dy                    // for dark screen
+        color : boxf
+
+    // setting
+    screen 7, 700, 480, screen_hide or screen_fixedsize
+        title "setting"
+        syscolor 15 : boxf
+        winobj "systabcontrol32", "", 0, 0x52000000, ginfo_winx, ginfo_winy
+        hTab = objinfo(stat, 2)
+        sendmsg hTab, 0x30, GetStockObject(17)
+        tabTitle = "Common", "Keys", "Apps"
+        dim rect, 4
+        foreach tabTitle
+            tcitem = 1, 0, 0, varptr(tabTitle(cnt))
+            sendmsg hTab, 0x1307, cnt, varptr(tcitem)
+            GetClientRect hTab, varptr(rect)
+            sendmsg hTab, 0x1328, 0, varptr(rect)
+        loop
+        oncmd gosub *tabNotify, WM_NOTIFY
+
+    // setting - Common
+    bgscr 8, rect(2) - rect(0), rect(3) - rect(1), screen_hide, rect(0), rect(1)
+        SetWindowLong hwnd, -16, 0x40000000
+        SetParent hwnd, hTab
+        color $20, $20, $20 : boxf
+        font msgothic, 20
+        color $FF, $FF, $FF
+        pos 20,  20 : mes "Animation"
+        pos 20, 150 : mes "Selection"
+        font msgothic, 16
+        color $C0, $C0, $C0
+        pos  50,  50 : mes "blurBlend"
+        pos  50,  80 : mes "blurDepth"
+        pos  50, 110 : mes "darkBlend"
+        pos  50, 180 : mes "selectingBlend"
+        pos  50, 210 : mes "bigIconSize"
+        pos  50, 240 : mes "sepHalfLength"
+        pos  50, 270 : mes "fontSize"
+        font msgothic, 14
+        objmode objmode_usefont
+        blurBlendIn = blurBlend
+        blurDepthIn = blurDepth
+        darkBlendIn = DarkBlend
+        selectingBlendIn = selectingBlend
+        bigIconSizeIn = bigIconSize
+        sepHalfLengthIn = sepHalfLength
+        fontSizeIn = fontSize
+        opx = 200
+        osx = 50
+        pos opx,  48 : input blurBlendIn, osx, 20, 3
+        blurBlendInId = stat
+        pos opx,  78 : input blurDepthIn, osx, 20, 2
+        blurDepthInId = stat
+        pos opx, 108 : input darkBlendIn, osx, 20, 3
+        darkBlendInId = stat
+        pos opx, 178 : input selectingBlendIn, osx, 20, 3
+        selectingBlendInId = stat
+        pos opx, 208 : input bigIconSizeIn, osx, 20, 3
+        bigIconSizeInId = stat
+        pos opx, 238 : input sepHalfLengthIn, osx, 20, 3
+        sepHalfLengthInId = stat
+        pos opx, 268 : input fontSizeIn, osx, 20, 3
+        fontSizeInId = stat
+
+    // setting - Keys
+    bgscr 9, rect(2)-rect(0), rect(3)-rect(1), screen_hide, rect(0), rect(1)
+        SetWindowLong hwnd, -16, 0x40000000
+        SetParent hwnd, hTab
+        color $20, $20, $20 : boxf
+        color $FF, $FF, $FF
+        font msgothic, 14
+        objmode objmode_usefont
+        objsize 100, 30
+        pos 20,  20 : button gosub "Add", *addTriggerKey
+        pos 20,  70 : button gosub "Delete", *deleteTriggerKey
+        keyListIndex = -1
+        keyList = ""
+        objsize ginfo_winx-40, ginfo_winy-120-20
+        pos 20, 120 : listbox keyListIndex, 0, keyList
+        keyListId = stat
+        gosub *updateKeyList
+
+    // setting - Apps
+    bgscr 10, rect(2)-rect(0), rect(3)-rect(1), screen_hide, rect(0), rect(1)
+        SetWindowLong hwnd, -16, 0x40000000
+        SetParent hwnd, hTab
+        DragAcceptFiles hwnd, 1
+        color $20, $20, $20 : boxf
+        oncmd gosub *dropFiles, WM_DROPFILES
+
+    gsel 8, 1
+
+    gsel 0, 0
+
+    khHookLL *onKeyHook
+    onexit gosub *exitProcess
+
+    goto *main
 
 
 
@@ -340,7 +338,7 @@ goto *main
 
         cx = (rect(2)-rect(0)) / 2
         cy = (rect(3)-rect(1)) / 2
-        appR = cy - 70
+        appR = cy - 90
         selecting = -2
 
         gsel 10, 0
@@ -451,6 +449,7 @@ goto *main
 *showSetting
     gsel 0, -1
     gsel 7, 2
+    gsel 7, 1
     openSetting = STAT_MID
     return
 
