@@ -36,37 +36,27 @@
             if (m(cnt) == i) { return cnt }
         loop
         return -1
-    #deffunc iArrDel array m, int i
+    #deffunc arrDel array m, int i, int t
         n = length(m) - 1
-        dim arr, n
+        if (t == 0) {
+            dim arr, n
+        } else {
+            sdim arr, n
+        }
         ic = 0
         foreach m
-            if (m(cnt) == i) {
+            if (cnt == i) {
                 continue
             } else {
                 arr(ic) = m(cnt)
             }
             ic++
         loop
-        dim m, n
-        foreach arr
-        	m(cnt) = arr(cnt)
-        loop
-        return
-
-    #deffunc sArrDel array m, str i
-        n = length(m) - 1
-        sdim arr, n
-        ic = 0
-        foreach m
-            if (m(cnt) == i) {
-                continue
-            } else {
-                arr(ic) = m(cnt)
-            }
-            ic++
-        loop
-        sdim m, n
+        if (t == 0) {
+            dim m, n
+        } else {
+            sdim m, n
+        }
         foreach arr
         	m(cnt) = arr(cnt)
         loop
@@ -78,6 +68,7 @@
 #define WM_NOTIFY       0x0000004E
 #define TCN_SELCHANGE   0xFFFFFDD9
 #define TCM_GETCURSEL   0x0000130B
+#define TCM_SETCURSEL   0x0000130C
 #define SRCCOPY         0x00CC0020
 #define CAPTUREBLT      0x40000000
 #define iconHalfSize    16
@@ -103,8 +94,10 @@ goto *pre
     openSetting = STAT_YET
     keyAddition = STAT_YET
     keyDeletion = STAT_YET
+    appRedraw = STAT_YET
     transition = -1
     selecting = -1
+    preSelecting = -1
     wId = 0
     changeSelecting = 0
     detectionLoop = 0
@@ -210,16 +203,9 @@ goto *pre
         }
     }
 
-    // load icon
-    appNum = length(appPath)
-    dim iconHandle, appNum
-    repeat appNum
-        ExtractIcon hInstance, appPath(cnt), 0
-        iconHandle(cnt) = stat
-        if (stat == 0) : dialog "loading failed."
-    loop
+    gosub *loadIcon
 
-    appR = (0.05*appNum + 0.1) * cy
+    appR = (0.05*length(appPath) + 0.1) * cy
     pageMsgPos = cy - appR - (iconHalfSize*2 + bigIconSize/2) - fontSize - 10
     launcherMsgPos = cy + appR + (iconHalfSize*2 + bigIconSize/2) + 10
 
@@ -228,8 +214,8 @@ goto *pre
     buffer 1, dx, dy                    // for screen shot
     buffer 2, dx, dy                    // for blended screen
     buffer 3, dx, dy                    // for colored screen
-        dim appColor, appNum
-        repeat appNum
+        dim appColor, length(appPath)
+        foreach appColor
             DrawIcon hdc, 0, 0, iconHandle(cnt)
             pos 0, 0 : gzoom 1, 1, 3, 0, 0, 32, 32, 1
             pget 0, 0
@@ -337,7 +323,6 @@ goto *pre
         hAppDeletionBtn = objinfo(stat, 2)
         oncmd gosub *dropFiles, WM_DROPFILES
 
-    gsel 8, 1
     gsel 0, 0
 
     khHookLL *onKeyHook
@@ -347,23 +332,32 @@ goto *pre
 
 
 
+*loadIcon
+    dim iconHandle, length(appPath)
+    foreach iconHandle
+        ExtractIcon hInstance, appPath(cnt), 0
+        iconHandle(cnt) = stat
+        if (stat == 0) : dialog "loading failed."
+    loop
+    return
+
 
 
 *editAppDetail
     return
 
+
+
 *deleteLaunchApp
+    dialog "delete \"" + appName(selecting) + "\" ?", 3
+    if (stat == 6) {  // yes
+        arrDel appPath, selecting, 1
+        arrDel appName, selecting, 1
+        selecting = -1
+        preSelecting = -1
+        appRedraw = STAT_INI
+    }
     return
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -378,7 +372,11 @@ goto *pre
         color $20, $20, $20 : boxf
         gosub *drawApps
 
-        gosub *showSetting
+        gsel 0, -1
+        gsel 8, 1
+        gsel 7, 2
+        gsel 7, 1
+        openSetting = STAT_MID
 
     } else : if (openSetting == STAT_MID) {
 
@@ -411,8 +409,8 @@ goto *pre
         // trigger key deletion
         if (keyDeletion == STAT_MID) {
             if ((keyListIndex != -1) and (keyListIndex < length(triggerKey)) and (length(triggerKey) > 1)) {
-                iArrDel triggerKey, triggerKey(keyListIndex)
-                sArrDel triggerKeyName, triggerKeyName(keyListIndex)
+                arrDel triggerKey, keyListIndex, 0
+                arrDel triggerKeyName, keyListIndex, 1
                 dim triggerKeyPush, length(triggerKeyPush)-1
                 notesel keyList
                 notedel keyListIndex
@@ -424,41 +422,43 @@ goto *pre
 
         // move app-setting buttons
         if (detectionLoop) {
+            gsel 7, 0
+            title str(selecting)
             gsel 10, 0
             preSelecting = selecting
             gosub *detectAppSelection
             if (preSelecting != selecting) {
                 if (selecting == -1) {
-                    ShowWindow hAppDetailBtn, 0
-                    ShowWindow hAppDeletionBtn, 0
+                    gosub *hideAppBtn
                 } else {
                     if (preSelecting == -1) {
                         ShowWindow hAppDetailBtn, 5
                         ShowWindow hAppDeletionBtn, 5
                     }
                     btnR = appR + 50
-                    MoveWindow hAppDetailBtn, cx-bsx/2 + pCos(cAng(appNum*5, selecting*5-1))*btnR, cy-bsy/2 + pSin(cAng(appNum*5, selecting*5-1))*btnR, bsx, bsy, 1
-                    MoveWindow hAppDeletionBtn, cx-bsx/2 + pCos(cAng(appNum*5, selecting*5+1))*btnR, cy-bsy/2 + pSin(cAng(appNum*5, selecting*5+1))*btnR, bsx, bsy, 1
+                    MoveWindow hAppDetailBtn, cx-bsx/2 + pCos(cAng(length(appPath)*5, selecting*5-1))*btnR, cy-bsy/2 + pSin(cAng(length(appPath)*5, selecting*5-1))*btnR, bsx, bsy, 1
+                    MoveWindow hAppDeletionBtn, cx-bsx/2 + pCos(cAng(length(appPath)*5, selecting*5+1))*btnR, cy-bsy/2 + pSin(cAng(length(appPath)*5, selecting*5+1))*btnR, bsx, bsy, 1
                 }
             }
             gsel 7, 0
         }
 
         // app addition
-        if (appAddition == STAT_INI) {
+        if (appRedraw == STAT_INI) {
+            gosub *loadIcon
             redraw 0
                 gsel 10, 0
                 color $20, $20, $20 : boxf
                 gosub *drawApps
             redraw 1
-            appAddition = STAT_YET
+            appRedraw = STAT_YET
         }
     
     } else : if (openSetting == STAT_END) {
 
         cx = dx/2
         cy = dy/2
-        appR = (0.05*appNum + 0.1) * cy
+        appR = (0.05*length(appPath) + 0.1) * cy
         selecting = -1
         openSetting = STAT_YET
 
@@ -473,6 +473,14 @@ goto *pre
     }
     wait 1
     goto *main
+
+
+
+*hideAppBtn
+    ShowWindow hAppDetailBtn, 0
+    ShowWindow hAppDeletionBtn, 0
+    return
+
 
 
 *addTriggerKey
@@ -497,15 +505,6 @@ goto *pre
         keyList += triggerKeyName(cnt) + " : " + str(triggerKey(cnt)) + "\n"
     loop
     objprm keyListId, keyList
-    return
-
-
-
-*showSetting
-    gsel 0, -1
-    gsel 7, 2
-    gsel 7, 1
-    openSetting = STAT_MID
     return
 
 
@@ -584,11 +583,11 @@ goto *pre
 *detectAppSelection
     mouseRad = pT(mousex-cx, mousey-cy)
     if (pR(mousex-cx, mousey-cy) >= appR) {
-        if ((cAng(appNum*2, appNum*2-1) < mouseRad) | (mouseRad < cAng(appNum*2, 1))) {
+        if ((cAng(length(appPath)*2, length(appPath)*2-1) < mouseRad) | (mouseRad < cAng(length(appPath)*2, 1))) {
             selecting = 0
         } else {
-            repeat appNum-1
-                if ((cAng(appNum*2, cnt*2+1) < mouseRad) & (mouseRad < cAng(appNum*2, cnt*2+3))) { selecting = cnt + 1 }
+            repeat length(appPath)-1
+                if ((cAng(length(appPath)*2, cnt*2+1) < mouseRad) & (mouseRad < cAng(length(appPath)*2, cnt*2+3))) { selecting = cnt + 1 }
             loop
         }
     } else { selecting = -1 }
@@ -645,7 +644,7 @@ goto *pre
 
             // draw big icon
             gmode gmode_rgb0
-            pos cx-iconHalfSize-bigIconSize/2 + pCos(cAng(appNum, selecting))*appR, cy-iconHalfSize-bigIconSize/2 + pSin(cAng(appNum, selecting))*appR
+            pos cx-iconHalfSize-bigIconSize/2 + pCos(cAng(length(appPath), selecting))*appR, cy-iconHalfSize-bigIconSize/2 + pSin(cAng(length(appPath), selecting))*appR
             gcopy 5, 0, 0, iconHalfSize*2+bigIconSize, iconHalfSize*2+bigIconSize
 
             // draw message
@@ -655,13 +654,15 @@ goto *pre
 
             // draw selecting line
             ;color $40, $40, $40
-            ;line cx, cy, cx + pCos(cAng(appNum*2, selecting*2-1))*appR, cy + pSin(cAng(appNum*2, selecting*2-1))*appR
-            ;line cx, cy, cx + pCos(cAng(appNum*2, selecting*2+1))*appR, cy + pSin(cAng(appNum*2, selecting*2+1))*appR
+            ;line cx, cy, cx + pCos(cAng(length(appPath)*2, selecting*2-1))*appR, cy + pSin(cAng(length(appPath)*2, selecting*2-1))*appR
+            ;line cx, cy, cx + pCos(cAng(length(appPath)*2, selecting*2+1))*appR, cy + pSin(cAng(length(appPath)*2, selecting*2+1))*appR
         }
 
     } else {  // in setting
 
+        gosub *loadIcon
         gosub *arrangeIcons
+        gosub *hideAppBtn
 
     }
 
@@ -671,12 +672,12 @@ goto *pre
 
 
 *arrangeIcons
-    repeat appNum
+    foreach iconHandle
         // draw icon
-        DrawIcon hdc, cx-iconHalfSize + pCos(cAng(appNum, cnt))*appR, cy-iconHalfSize + pSin(cAng(appNum, cnt))*appR, iconHandle(cnt)
+        DrawIcon hdc, cx-iconHalfSize + pCos(cAng(length(appPath), cnt))*appR, cy-iconHalfSize + pSin(cAng(length(appPath), cnt))*appR, iconHandle(cnt)
 
         // draw separation line
-        line cx + pCos(cAng(appNum*2, cnt*2-1))*(appR-sepHalfLength), cy + pSin(cAng(appNum*2, cnt*2-1))*(appR-sepHalfLength), cx + pCos(cAng(appNum*2, cnt*2-1))*(appR+sepHalfLength), cy + pSin(cAng(appNum*2, cnt*2-1))*(appR+sepHalfLength)
+        line cx + pCos(cAng(length(appPath)*2, cnt*2-1))*(appR-sepHalfLength), cy + pSin(cAng(length(appPath)*2, cnt*2-1))*(appR-sepHalfLength), cx + pCos(cAng(length(appPath)*2, cnt*2-1))*(appR+sepHalfLength), cy + pSin(cAng(length(appPath)*2, cnt*2-1))*(appR+sepHalfLength)
 
     loop
     return
@@ -739,15 +740,14 @@ goto *pre
     sdim dropAppPath, dromNum, 260
     repeat dropNum
         DragQueryFile hDrop, cnt, varptr(dropAppPath(cnt)), 260
-        appPath(appNum) = dropAppPath(cnt)
-        ExtractIcon hInstance, appPath(appNum), 0
-        iconHandle(appNum) = stat
+        appPath(length(appPath)) = dropAppPath(cnt)
+        ExtractIcon hInstance, appPath(length(appPath)), 0
+        iconHandle(length(appPath)) = stat
         if (stat == 0) : dialog "loading failed."
-        appNum++
     loop
     preSelecting = -1
     selecting = -1
-    appAddition = STAT_INI
+    appRedraw = STAT_INI
     return
 
 
@@ -775,6 +775,8 @@ goto *pre
         transition = -1
         detectionLoop = 0
         gsel 7, -1
+        gsel 8 + wId, -1
+        sendmsg hTab, TCM_SETCURSEL, 0
     } else {
         end
     }
