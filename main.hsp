@@ -160,7 +160,7 @@ goto *pre
                     case 5
                         split noteBuf, ",", sBuf
                         dim triggerKey, length(sBuf)
-                        dim triggerKeyName, length(sBuf)
+                        sdim triggerKeyName, 100, length(sBuf)
                         dim triggerKeyPush, length(sBuf)
                         foreach sBuf
                             split sBuf(cnt), ":", iBuf, triggerKeyName(cnt)
@@ -203,8 +203,6 @@ goto *pre
         }
     }
 
-    gosub *loadIcon
-
     appR = (0.05*length(appPath) + 0.1) * cy
     pageMsgPos = cy - appR - (iconHalfSize*2 + bigIconSize/2) - fontSize - 10
     launcherMsgPos = cy + appR + (iconHalfSize*2 + bigIconSize/2) + 10
@@ -214,14 +212,6 @@ goto *pre
     buffer 1, dx, dy                    // for screen shot
     buffer 2, dx, dy                    // for blended screen
     buffer 3, dx, dy                    // for colored screen
-        dim appColor, length(appPath)
-        foreach appColor
-            DrawIcon hdc, 0, 0, iconHandle(cnt)
-            pos 0, 0 : gzoom 1, 1, 3, 0, 0, 32, 32, 1
-            pget 0, 0
-            appColor(cnt) = ginfo_r << 16 | ginfo_g << 8 | ginfo_b
-        loop
-
     buffer 4                            // for drawing icon
     buffer 5                            // for resizing icon
     buffer 6, dx, dy                    // for dark screen
@@ -323,6 +313,7 @@ goto *pre
         hAppDeletionBtn = objinfo(stat, 2)
         oncmd gosub *dropFiles, WM_DROPFILES
 
+    gosub *loadIcon
     gsel 0, 0
 
     khHookLL *onKeyHook
@@ -334,10 +325,16 @@ goto *pre
 
 *loadIcon
     dim iconHandle, length(appPath)
+    dim appColor, length(appPath)
+    gsel 3, 0
     foreach iconHandle
         ExtractIcon hInstance, appPath(cnt), 0
         iconHandle(cnt) = stat
         if (stat == 0) : dialog "loading failed."
+        DrawIcon hdc, 0, 0, iconHandle(cnt)
+        pos 0, 0 : gzoom 1, 1, 3, 0, 0, 32, 32, 1
+        pget 0, 0
+        appColor(cnt) = ginfo_r << 16 | ginfo_g << 8 | ginfo_b
     loop
     return
 
@@ -741,10 +738,8 @@ goto *pre
     repeat dropNum
         DragQueryFile hDrop, cnt, varptr(dropAppPath(cnt)), 260
         appPath(length(appPath)) = dropAppPath(cnt)
-        ExtractIcon hInstance, appPath(length(appPath)), 0
-        iconHandle(length(appPath)) = stat
-        if (stat == 0) : dialog "loading failed."
     loop
+    gosub *loadIcon
     preSelecting = -1
     selecting = -1
     appRedraw = STAT_INI
