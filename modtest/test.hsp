@@ -1,0 +1,76 @@
+#module
+//  Util
+    #define global VARTYPE_STR  2
+    #define global VARTYPE_INT  4
+    #define global arrAdd(%1, %2) %1(length(%1)) = %2
+
+    #defcfunc lSearch array a, int i
+        foreach a
+            if (a(cnt) == i) { return cnt }
+        loop
+        return -1
+
+    #deffunc arrDel array a, int i, int t
+        n = length(a) - 1
+        dimtype arr, t, n
+        ic = 0
+        foreach a
+            if (cnt == i) {
+                continue
+            } else {
+                arr(ic) = a(cnt)
+            }
+            ic++
+        loop
+        dimtype a, t, n
+        foreach arr
+            a(cnt) = arr(cnt)
+        loop
+        return
+    
+    
+//  Trigger Key
+    #deffunc initKey str readStr
+        rs = readStr
+        split rs, ",", sBuf
+        keyNum = length(sBuf)
+        dim triggerKey, keyNum
+        sdim triggerKeyName, 50, keyNum
+        dim triggerKeyPush, keyNum
+        foreach sBuf
+            split sBuf(cnt), ":", iBuf, triggerKeyName(cnt)
+            triggerKey(cnt) = int(iBuf)
+        loop
+        return
+    
+    #deffunc addKey int add_key, str add_keyName
+        if ((add_key != -1) and (lSearch(triggerKey, add_key) == -1)) {
+            arrAdd triggerKey, add_key
+            arrAdd triggerKeyName, add_keyName
+            arrAdd triggerKeyPush, 0
+            keyNum++
+            return 1
+        }
+        return 0
+
+    #defcfunc getKeyNum
+        return keyNum
+    
+    #deffunc delKey int del_keyIndex
+        if ((del_keyIndex != -1) and (del_keyIndex < keyNum) and (keyNum > 1)) {
+            arrDel triggerKey, del_keyIndex, VARTYPE_INT
+            arrDel triggerKeyName, del_keyIndex, VARTYPE_STR
+            dim triggerKeyPush, keyNum-1
+            keyNum--
+            return 1
+        }
+        return 0
+    
+    
+//  app
+    
+
+#global
+
+
+end
