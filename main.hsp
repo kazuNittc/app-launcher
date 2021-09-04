@@ -658,6 +658,7 @@ goto *pre
     } else {  // in setting
 
         gosub *loadIcon
+        gsel 10, 0
         gosub *arrangeIcons
         gosub *hideAppBtn
 

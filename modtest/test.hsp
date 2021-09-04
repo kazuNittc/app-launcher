@@ -1,4 +1,12 @@
 #module
+//  ----- DLL Loading -----
+    #uselib "shell32"
+        #func ExtractIcon "ExtractIconA"    int, sptr, int
+    
+    #uselib "user32"
+        #func DrawIcon "DrawIcon"           int, int, int, int
+
+    
 //  Util
     #define global VARTYPE_STR  2
     #define global VARTYPE_INT  4
@@ -52,9 +60,6 @@
             return 1
         }
         return 0
-
-    #defcfunc getKeyNum
-        return keyNum
     
     #deffunc delKey int del_keyIndex
         if ((del_keyIndex != -1) and (del_keyIndex < keyNum) and (keyNum > 1)) {
@@ -65,10 +70,59 @@
             return 1
         }
         return 0
+
+    #defcfunc getKeyNum
+        return keyNum
     
+
+//  App
+    #deffunc initApp str appDat, int pgs
+        procGsel = pgs
+        notesel appDat
+        appNum = notemax
+        sdim appPath, 260, appNum
+        sdim appName, 100, appNum
+        dim hAppIcon, appNum
+        dim appColor, appNum
+        repeat appNum
+            noteget noteBuf, cnt
+            if (noteBuf == "") { break }
+            split noteBuf, "|", appPath(cnt), appName(cnt)
+            hAppIcon(cnt) = calcHAppIcon(appPath(cnt))
+            appColor(cnt) = calcAppColor(appPath(cnt), hAppIcon(cnt))
+        loop
+        return
+
+    #deffunc addApp str add_path, str add_name
+        arrAdd appPath, add_path
+        arrAdd appName, add_name
+        appNum++
+        return
     
-//  app
+    #deffunc delApp int del_appIndex
+        if (appNum <= 1) { return 0 }
+        arrDel appPath, del_appIndex, VARTYPE_STR
+        arrDel appName, del_appIndex, VARTYPE_STR
+        arrDel hAppIcon, del_appIndex, VARTYPE_INT
+        arrDel appColor, del_appIndex, VARTYPE_INT
+        appNum--
+        return 1
     
+    #defcfunc getAppNum
+        return appNum
+
+    // internal
+    #defcfunc calcHAppIcon str hIcon_path
+        ExtractIcon hInstance, hIcon_path, 0
+        return stat
+
+    #defcfunc calcAppColor str color_path, int color_hIcon
+        nowGsel = ginfo_sel
+        gsel procGsel
+        DrawIcon hdc, 0, 0, color_hIcon
+        pos 0, 0 : gzoom 1, 1, 3, 0, 0, 32, 32, 1
+        pget 0, 0
+        return (ginfo_r << 16 | ginfo_g << 8 | ginfo_b)
 
 #global
 
