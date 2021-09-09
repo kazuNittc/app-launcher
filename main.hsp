@@ -419,8 +419,6 @@ goto *pre
 
         // move app-setting buttons
         if (detectionLoop) {
-            gsel 7, 0
-            title str(selecting)
             gsel 10, 0
             preSelecting = selecting
             gosub *detectAppSelection
