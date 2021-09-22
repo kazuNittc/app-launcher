@@ -1,0 +1,140 @@
+#module app _path, _name, _hdl, _col, _page
+	
+	pageMax = 0
+	appNum = 0
+	
+	#modinit str ini_path, str ini_name, int ini_hdl, int ini_col, int ini_page
+		_path = ini_path
+		_name = ini_name
+		_hdl = ini_hdl
+		_col = ini_col
+		_page = ini_page
+		// create new page
+		if (pageMax < ini_page) {
+			pageMax = ini_page
+		}
+		appNum++
+		return
+	
+	#modterm
+		appNum--
+		return
+	
+	#modcfunc getAppPath
+		return _path
+	
+	#modfunc setAppPath str set_path
+		_path = set_path
+		return
+	
+	#modcfunc getAppName
+		return _name
+	
+	#modfunc setAppName str set_name
+		_name = set_name
+		return
+	
+	#modcfunc getAppHdl
+		return _hdl
+	
+	#modfunc setAppHdl int set_hdl
+		_hdl = set_hdl
+		return
+	
+	#modcfunc getAppCol
+		return _col
+	
+	#modfunc setAppCol int set_col
+		_col = set_col
+		return
+	
+	#modcfunc getAppPage
+		return _page
+	
+	#modfunc setAppPage int set_page
+		_page = set_page
+		return
+	
+	#defcfunc getAllAppNum
+		return appNum
+	
+	#defcfunc getPageNum
+		return pageMax + 1
+	
+#global
+
+
+
+pageView = 0
+
+pos 0, 0
+button gosub "•\Ž¦", *draw
+button gosub "’Ç‰Á", *add
+button gosub "íœ", *del
+pos 100, 20
+button gosub "©", *prevPage
+pos 200, 20
+button gosub "¨", *nextPage
+
+newmod appData, app, "", "app1", 0, 0, 0
+newmod appData, app, "", "app2", 0, 0, 0
+newmod appData, app, "", "app3", 0, 0, 0
+newmod appData, app, "", "app4", 0, 0, 1
+newmod appData, app, "", "app5", 0, 0, 1
+newmod appData, app, "", "app6", 0, 0, 2
+newmod appData, app, "", "app7", 0, 0, 3
+newmod appData, app, "", "app8", 0, 0, 3
+newmod appData, app, "", "app9", 0, 0, 3
+
+currentNumber = 10
+
+gosub *draw
+
+stop
+
+
+
+*draw
+	title "page: " + pageView
+	color $FF,$FF, $FF : boxf
+	color
+	pos 0, 100
+	cntr = 0
+	foreach appData
+		if (getAppPage(appData(cnt)) == pageView) {
+			mes "" + cntr + ": " + getAppName(appData(cnt))
+			cntr++
+		}
+	loop
+	mes
+	mes "       / " + getAllAppNum()
+	
+	return
+
+*add
+	newmod appData, app, "", "app" + currentNumber, 0, 0, pageView
+	currentNumber++
+	gosub *draw
+	return
+
+*del
+	
+	return
+
+*prevPage
+	if (pageView == 0) {
+		pageView = getPageNum()-1
+	} else {
+		pageView--
+	}
+	gosub *draw
+	return
+
+*nextPage
+	if (pageView == (getPageNum()-1)) {
+		pageView = 0
+	} else {
+		pageView++
+	}
+	gosub *draw
+	return
