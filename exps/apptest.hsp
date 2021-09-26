@@ -1,0 +1,29 @@
+#module
+	pageNum = 0
+	appNum = 0
+	appId = 0
+	addIndex = 1
+
+	appPath = ""
+	appName = ""
+	hIcon = 0
+	appColor = 0
+
+	#deffunc addApp str add_path, str add_name, int add_hdl, int add_col, int add_page
+		if ((pageNum - 1) < add_page) {
+			pageNum = add_page + 1
+			appNum(add_page) = 0
+		}
+		appPath(addIndex) = add_path
+		appName(addIndex) = add_name
+		hIcon(addIndex) = add_hdl
+		appColor(addIndex) = add_col
+
+		appId(appNum(add_page)) = addIndex
+
+		addIndex++
+		appNum(add_page)++
+		
+		return
+
+#global
