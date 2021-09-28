@@ -1,13 +1,18 @@
 #module
-	pageNum = 0
-	appNum = 0
-	appId = 0
-	addIndex = 1
+	#const APPMAX	8
 
-	appPath = ""
-	appName = ""
-	hIcon = 0
-	appColor = 0
+	#deffunc initAppMng
+		pageNum = 0
+		appNum = 0
+		appId = 0
+		addIndex = 1
+		appPath = ""
+		appName = ""
+		hIcon = 0
+		appColor = 0
+		return
+
+
 
 	#deffunc addApp str add_path, str add_name, int add_hdl, int add_col, int add_page
 		if ((pageNum - 1) < add_page) {
@@ -19,11 +24,39 @@
 		hIcon(addIndex) = add_hdl
 		appColor(addIndex) = add_col
 
-		appId(appNum(add_page)) = addIndex
+		idIndex = APPMAX*add_page + appNum(add_page)
+		;dialog "" + add_name + "(" + addIndex + ") add to " + idIndex
+		appId(idIndex) = addIndex
+		;dialog "add \"" + add_name + "\" to page" + add_page + " (num: " + appNum(add_page) + ")"
 
 		addIndex++
 		appNum(add_page)++
 		
 		return
+	
+
+
+	#deffunc showInfo
+		mes "pageNum: " + pageNum
+		repeat pageNum
+			mes "page" + (cnt+1) + ": " + appNum(cnt) + " apps exist"
+		loop
+		tmp = ""
+		foreach appId
+			tmp += "" + appId(cnt) + " "
+		loop
+		mes tmp
+		return
 
 #global
+
+
+initAppMng
+addApp "", "firstapp", 0, 0, 0
+addApp "", "sec", 0, 0, 0
+addApp "", "newpage", 0, 0, 1
+addApp "", "wa", 0, 0, 2
+addApp "", "ooooo", 0, 0, 2
+addApp "", "terminal", 0, 0, 2
+showInfo
+stop
