@@ -460,6 +460,8 @@ goto *pre
     } else {
         if (keySwitch) {
             redraw 0
+                pageMsgPos = cy - appR - (iconHalfSize*2 + bigIconSize/2) - fontSize - 10
+                launcherMsgPos = cy + appR + (iconHalfSize*2 + bigIconSize/2) + 10
                 gosub *key1
             redraw 1
         } else {
@@ -562,6 +564,14 @@ goto *pre
         if (sKey) {
             transition = -1
             openSetting = 1
+        }
+
+        // detect mouse wheeling
+        appR += mousew / 40
+        if (appR < 100) {
+            appR = 100
+        } else : if (dy/2-100 < appR) {
+            appR = dy/2 - 100
         }
 
         // screen blend

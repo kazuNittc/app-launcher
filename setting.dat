@@ -1,6 +1,6 @@
 128                 // blurBlend
 3                   // blurDepth
-20                  // selectingBlend
+40                  // selectingBlend
 40                  // bigIconSize
 3                   // sepHalfLength
 160:Shift,162:Ctrl  // triggerKey
