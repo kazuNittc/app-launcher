@@ -1,10 +1,17 @@
 #module
+	// 各変数にアプリのデータを格納し，ID を割り当て
+	// アプリの配置，並び替えは idSeq に格納された ID をいじる
+	
 	#const APPMAX	8
+
+	#define ctype idAbs(%1, %2) APPMAX*%1+%2
+
+
 
 	#deffunc initAppMng
 		pageNum = 0
 		appNum = 0
-		appId = 0
+		idSeq = 0
 		addIndex = 1
 		appPath = ""
 		appName = ""
@@ -15,48 +22,133 @@
 
 
 	#deffunc addApp str add_path, str add_name, int add_hdl, int add_col, int add_page
-		if ((pageNum - 1) < add_page) {
-			pageNum = add_page + 1
-			appNum(add_page) = 0
+		_add_page = add_page
+		if ((pageNum - 1) < _add_page) {
+			pageNum = _add_page + 1
+			appNum(_add_page) = 0
+		} else : if (appNum(_add_page) >= 8) {
+			pageNum++
+			_add_page++
+			appNum(_add_page) = 0
 		}
 		appPath(addIndex) = add_path
 		appName(addIndex) = add_name
 		hIcon(addIndex) = add_hdl
 		appColor(addIndex) = add_col
 
-		idIndex = APPMAX*add_page + appNum(add_page)
-		;dialog "" + add_name + "(" + addIndex + ") add to " + idIndex
-		appId(idIndex) = addIndex
-		;dialog "add \"" + add_name + "\" to page" + add_page + " (num: " + appNum(add_page) + ")"
+		idIndex = idAbs(_add_page, appNum(_add_page))
+		idSeq(idIndex) = addIndex
 
 		addIndex++
-		appNum(add_page)++
+		appNum(_add_page)++
 		
+		return
+
+
+
+	#deffunc swapApp int swap_page, int swap_fromIndex, int swap_toIndex
+		if ((swap_fromIndex >= appNum(swap_page)) or (swap_toIndex >= appNum(swap_page))) {
+			return
+		}
+		if (swap_fromIndex > swap_toIndex) {
+			bigger = swap_fromIndex
+			smaller = swap_toIndex
+		} else {
+			bigger = swap_toIndex
+			smaller = swap_fromIndex
+		}
+		;dialog "bigger: " + bigger + " / smaller: " + smaller
+		t = idSeq(idAbs(swap_page, bigger))
+		loopIndex = idAbs(swap_page, bigger)
+		repeat bigger - smaller
+			idSeq(loopIndex) = idSeq(loopIndex-1)
+			loopIndex--
+		loop
+		idSeq(loopIndex) = t
 		return
 	
 
 
-	#deffunc showInfo
-		mes "pageNum: " + pageNum
-		repeat pageNum
-			mes "page" + (cnt+1) + ": " + appNum(cnt) + " apps exist"
+	#deffunc delApp int del_inPage, int del_appIndex
+		if (appNum(del_inPage) <= del_appIndex) {
+			return
+		}
+		idIndex = idAbs(del_inPage, del_appIndex)
+		idSeq(idIndex) = 0
+		appNum(del_inPage)--
+		loopIndex = idIndex
+		repeat appNum(del_inPage) - del_appIndex
+			idSeq(loopIndex) = idSeq(loopIndex+1)
+			loopIndex++
 		loop
+		idSeq(loopIndex) = 0
+		return
+
+
+
+	#deffunc showInfo
+		;mes "pageNum: " + pageNum
+		;repeat pageNum
+		;	mes "page" + (cnt+1) + ": " + appNum(cnt) + " apps exist"
+		;loop
 		tmp = ""
-		foreach appId
-			tmp += "" + appId(cnt) + " "
+		pageCnt = 1
+		foreach idSeq
+			if (cnt\8 == 0) {
+				tmp += "# page" + pageCnt + " " + appNum(pageCnt-1) + " ----------------------------------------------------------------\n"
+				pageCnt++
+			}
+			tmp += "    index: " + strf("%2d", cnt) + "  "
+			if (idSeq(cnt) == 0) {
+				tmp += "              (nodata)"
+			} else {
+				tmp += "id: " + strf("%2d", idSeq(cnt)) + "  name: " + appName(idSeq(cnt))
+			}
+			tmp += "\n"
 		loop
 		mes tmp
 		return
 
 #global
 
+screen 0, 1280, 600, 0
+	initAppMng
+	addApp "", "firstapp", 0, 0, 0
+	addApp "", "sec", 0, 0, 0
+	addApp "", "newpage", 0, 0, 1
+	addApp "", "wa", 0, 0, 2
+	addApp "", "ooooo", 0, 0, 2
+	addApp "", "terminal", 0, 0, 2
+	addApp "", "wan", 0, 0, 2
+	addApp "", "nyan", 0, 0, 2
+	addApp "", "waoon", 0, 0, 2
+	addApp "", "waaa", 0, 0, 2
+	addApp "", "nyanko", 0, 0, 2
+	addApp "", "nyankoterminal", 0, 0, 2
+	/*
+	gosub *draw
+	wait 100
+	
+	delApp 2, 4
+	gosub *draw
+	wait 200
 
-initAppMng
-addApp "", "firstapp", 0, 0, 0
-addApp "", "sec", 0, 0, 0
-addApp "", "newpage", 0, 0, 1
-addApp "", "wa", 0, 0, 2
-addApp "", "ooooo", 0, 0, 2
-addApp "", "terminal", 0, 0, 2
-showInfo
-stop
+	swapApp 2, 1, 5
+	gosub *draw
+	*/
+
+	pos 0, 0
+	showInfo
+	
+	swapApp 2, 1, 5
+	pos 600, 0
+	showInfo
+
+	stop
+
+*draw
+	color $FF, $FF, $FF : boxf
+	color
+	pos 0, 0
+	showInfo
+	return
